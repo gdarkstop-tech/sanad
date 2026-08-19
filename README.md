@@ -4,54 +4,48 @@
 
 > **سند ليس مجرد تطبيق لتفريغ المحاضرات. سند رفيق أكاديمي متكامل يرافق الطالب من لحظة بدء المحاضرة وحتى انتهاء الامتحان.**
 
+**Current state: architecture proposed, awaiting review. No application code has been written yet.**
+
 ---
 
-## The story, in one line
+## The journey
 
-**Before the lecture → during the lecture → after the lecture → daily studying → the exam.**
+**Before the lecture → during the lecture → after the lecture → daily studying → exam preparation.**
 
-Sanad is not a bag of AI features. It is one loop that closes on itself:
+Sanad listens to a lecture, organizes it, makes it searchable, answers questions about it with citations, and turns it into study material and a study plan. It becomes the student's searchable academic memory.
 
-1. **It listens.** Live Arabic/English transcription that survives code-switching and gets the technical terms right.
-2. **It organizes.** Every lecture becomes a timestamped, searchable archive entry — transcript, recording, summary, key points, flashcards.
-3. **It answers.** Ask anything about your course and get an answer grounded *only* in your own lectures and materials, with the exact timestamp or page.
-4. **It coaches.** It knows which topics you're weak in and builds the study plan around your real calendar.
-5. **It prepares you.** Exam Mode turns the whole semester into a practice exam with model answers.
+## Two rules the whole system is built around
 
-Every step feeds the next. The transcript is what makes search work. Search is what makes grounded Q&A possible. Q&A performance is what tells the coach where you're weak. Weak topics are what Exam Mode drills.
+**1. Every claim is traceable.** Every answer, summary, flashcard, and exam question points back to a lecture timestamp or a document page. When the student's materials don't cover a question, Sanad says so instead of inventing an answer. This is enforced in the schema and in code, not requested in a prompt.
 
-## The rule that holds it together
+**2. Sanad is course-agnostic.** No subject, department, topic, or vocabulary exists in application code. Everything academic is configurable data. A Chemistry course, a Business course, and a Medicine course all load with zero code changes — and CI fails the build if a subject term leaks into application code.
 
-**Every answer, summary, flashcard, and quiz question must point back to its source** — a lecture timestamp or a document page. If Sanad can't find it in your materials, it says so instead of inventing it.
+Demo courses are seed fixtures and benchmark datasets. Nothing more.
 
-This is the single most important product decision in the project. It is what makes Sanad an academic tool instead of a chatbot with a university theme.
+## Architecture documents
 
-## Scope
-
-| | |
+| Document | Contents |
 |---|---|
-| **[Competition scope](docs/product-scope.md#competition-scope)** | The 8 things we are actually building, end to end, for one course |
-| **[Stretch](docs/product-scope.md#stretch-only-if-the-core-is-finished-early)** | Built only if the core lands early |
-| **[Future vision](docs/product-scope.md#future-vision-presented-not-built)** | Presented on slides, deliberately not built |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System design, technology decisions and their alternatives, module map, provider abstraction, auth, risks |
+| [DATABASE.md](DATABASE.md) | Full PostgreSQL schema with DDL, pgvector strategy, indexes, migrations, sizing |
+| [API.md](API.md) | REST endpoints, WebSocket protocol for live transcription, SSE contract for grounded answers |
+| [AI_PIPELINE.md](AI_PIPELINE.md) | ASR, term correction, retrieval, citation validation, emphasis detection, Exam Mode, deterministic scheduling |
+| [MVP.md](MVP.md) | Scope, out-of-scope with reasons, eleven phases (0–10) with exit criteria, demo narrative |
+| [ASR_BENCHMARK.md](ASR_BENCHMARK.md) | Phase 0 evaluation protocol, metrics, decision thresholds |
 
-The first version goes deep on **one course — Digital Logic** — rather than shallow on ten. A judge who sees one subject work completely believes the second subject will work. A judge who sees ten subjects half-work believes none of them.
+Read them in that order. `ARCHITECTURE.md` §11 lists the open questions that need answers before Phase 1.
 
-## Docs
+## Technology
 
-| Document | What's in it |
-|---|---|
-| [`docs/product-scope.md`](docs/product-scope.md) | Every feature from the vision, with a build/don't-build verdict and the reason |
-| [`docs/architecture.md`](docs/architecture.md) | How it actually works: transcription pipeline, retrieval, citations, mastery model |
-| [`docs/demo-script.md`](docs/demo-script.md) | The 5-minute demo, beat by beat, with fallbacks |
-| [`docs/build-plan.md`](docs/build-plan.md) | Build order, three parallel tracks, what to de-risk first |
+PostgreSQL 16 + pgvector as the single source of truth · TypeScript / Next.js for the product tier · Python for the AI tier · S3-compatible object storage for binaries · provider-abstracted ASR, embeddings, LLM, and translation.
+
+Rationale, and what was rejected, in [ARCHITECTURE.md](ARCHITECTURE.md) §3.
 
 ## الخلاصة بالعربي
 
-الفكرة كاملة ممتازة، بس مش كلها للمسابقة. القرار:
+- **سند مش شات بوت.** الأساس هو قاعدة بيانات أكاديمية منظمة — نصوص المحاضرات، المواد، التوقيتات، الاسترجاع، والمصادر — والـ AI مكوّن واحد فوقها، مش النظام كله.
+- **أي إجابة لازم يكون ليها مصدر** بالتوقيت أو رقم الصفحة، ولو المعلومة مش موجودة في مواد الطالب، سند يقول "مش لاقيها" بدل ما يخترع. ده متطبّق في قاعدة البيانات وفي الكود، مش مجرد تعليمات للموديل.
+- **النظام يشتغل مع أي مادة.** مفيش أي مادة أو مصطلح أو موضوع مكتوب جوه الكود — كله بيانات قابلة للتعديل، وفيه فحص في الـ CI بيكسر الـ build لو أي مصطلح خاص بمادة معينة اتسرّب للكود.
+- **الخطوة الأولى** هي تقييم دقة التفريغ الصوتي على تسجيلات حقيقية قبل بناء أي حاجة تانية، لأن كل حاجة في المنتج بتعتمد عليه.
 
-- **نبني 8 حاجات بس، لكن كاملة**: التفريغ الحي بالعربي/الإنجليزي، تصحيح المصطلحات التقنية، أرشيف المحاضرات، رفع أي ملف، البحث الموحّد، السؤال والجواب مع المصدر والتوقيت، وضع الامتحان، وخطة المذاكرة المرتبطة بالتقويم.
-- **نأجّل**: المجتمع الطلابي، لوحة الـ TA، الأسئلة الشائعة، المحادثة الصوتية، والترجمة لعدة لغات — دي كلها في شرائح "الرؤية المستقبلية".
-- **القاعدة الذهبية**: أي إجابة أو ملخص لازم يرجع لمصدره بالتوقيت أو رقم الصفحة، ولو المعلومة مش موجودة في مواد الطالب، سند يقول "مش لاقيها" بدل ما يخترع.
-- **مادة واحدة بس** (Digital Logic) وتشتغل صح، أحسن من عشر مواد نصّها شغّال.
-
-التفاصيل الكاملة في [`docs/product-scope.md`](docs/product-scope.md).
+التفاصيل الكاملة في المستندات فوق.
