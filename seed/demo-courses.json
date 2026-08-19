@@ -1,0 +1,30 @@
+{
+  "_comment": "Demo/test fixtures ONLY. Nothing here may appear in application code — scripts/check-course-agnostic.sh enforces that (ARCHITECTURE.md §1.1). Two unrelated disciplines, deliberately: a benchmark or a feature that works for one subject and collapses for another must be detectable.",
+  "courses": [
+    {
+      "title": "Digital Logic Design",
+      "code": "CSE201",
+      "primaryLanguage": "ar",
+      "secondaryLanguages": ["en"],
+      "vocabulary": [
+        { "canonicalTerm": "flip-flop", "language": "en", "aliases": ["فليب فلوب", "فلب فلوب"] },
+        { "canonicalTerm": "K-map", "language": "en", "aliases": ["كي ماب", "خريطة كارنوف", "karnaugh map"] },
+        { "canonicalTerm": "multiplexer", "language": "en", "aliases": ["مالتيبلكسر", "mux"] },
+        { "canonicalTerm": "truth table", "language": "en", "aliases": ["جدول الحقيقة"] }
+      ],
+      "topics": ["Boolean Algebra", "Combinational Logic", "Sequential Logic"]
+    },
+    {
+      "title": "Organic Chemistry",
+      "code": "CHM211",
+      "primaryLanguage": "ar",
+      "secondaryLanguages": ["en"],
+      "vocabulary": [
+        { "canonicalTerm": "stereochemistry", "language": "en", "aliases": ["ستيريوكيمستري"] },
+        { "canonicalTerm": "nucleophile", "language": "en", "aliases": ["نيوكليوفيل"] },
+        { "canonicalTerm": "chirality", "language": "en", "aliases": ["كيرالية"] }
+      ],
+      "topics": ["Functional Groups", "Reaction Mechanisms", "Spectroscopy"]
+    }
+  ]
+}

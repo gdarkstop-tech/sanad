@@ -4,7 +4,7 @@
 
 > **سند ليس مجرد تطبيق لتفريغ المحاضرات. سند رفيق أكاديمي متكامل يرافق الطالب من لحظة بدء المحاضرة وحتى انتهاء الامتحان.**
 
-**Current state: architecture proposed, awaiting review. No application code has been written yet.**
+**Current state: Phase 1 (foundation) implemented. Phases 2–11 not started.**
 
 ---
 
@@ -30,14 +30,20 @@ Demo courses are seed fixtures and benchmark datasets. Nothing more.
 | [DATABASE.md](DATABASE.md) | Full PostgreSQL schema with DDL, pgvector strategy, indexes, migrations, sizing |
 | [API.md](API.md) | REST endpoints, WebSocket protocol for live transcription, SSE contract for grounded answers |
 | [AI_PIPELINE.md](AI_PIPELINE.md) | ASR, term correction, retrieval, citation validation, emphasis detection, Exam Mode, deterministic scheduling |
-| [MVP.md](MVP.md) | Scope, out-of-scope with reasons, eleven phases (0–10) with exit criteria, demo narrative |
+| [MVP.md](MVP.md) | Scope, out-of-scope with reasons, phases 0–11 with exit criteria, demo narrative |
 | [ASR_BENCHMARK.md](ASR_BENCHMARK.md) | Phase 0 evaluation protocol, metrics, decision thresholds |
 
-Read them in that order. `ARCHITECTURE.md` §11 lists the open questions that need answers before Phase 1.
+Read them in that order. `ARCHITECTURE.md` §11 records the decisions taken and what remains open.
+
+## Running it
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup, migrations, and tests.
 
 ## Technology
 
-PostgreSQL 16 + pgvector as the single source of truth · TypeScript / Next.js for the product tier · Python for the AI tier · S3-compatible object storage for binaries · provider-abstracted ASR, embeddings, LLM, and translation.
+PostgreSQL 16 + pgvector as the single source of truth · TypeScript / Next.js as one responsive PWA for web and mobile · Python for the AI tier (from Phase 2) · S3-compatible object storage for binaries · hosted ASR and LLM, self-hosted open-source embeddings, all provider-abstracted.
+
+Offline-first on the client: recording a lecture never requires a network, and downloaded content is readable without one.
 
 Rationale, and what was rejected, in [ARCHITECTURE.md](ARCHITECTURE.md) §3.
 

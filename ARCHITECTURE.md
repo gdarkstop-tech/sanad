@@ -2,7 +2,7 @@
 
 System architecture for Sanad — an AI academic companion built on a structured academic knowledge base.
 
-**Status:** proposed, awaiting review. No application code has been written.
+**Status:** decisions finalized; Phase 1 (foundation) implemented. Phases 2–10 not started.
 
 Companion documents: [DATABASE.md](DATABASE.md) · [API.md](API.md) · [AI_PIPELINE.md](AI_PIPELINE.md) · [MVP.md](MVP.md) · [ASR_BENCHMARK.md](ASR_BENCHMARK.md)
 
@@ -101,11 +101,13 @@ Required by the brief and correct regardless. The data is deeply relational (stu
 
 ### 3.2 TypeScript for the product tier, Python for the AI tier
 
-Python owns what only Python does well: `faster-whisper`, `PyMuPDF`, `python-pptx`, audio processing. TypeScript owns the product surface, where end-to-end type safety from database to UI has the most value.
+ASR is a hosted API (§3.8), so the application tier calls it over HTTP and needs no Python for speech. Python's remaining justification is narrower but still real: document extraction (`PyMuPDF`, `python-pptx`, `python-docx`) and audio post-processing (ffmpeg), where the library ecosystem is materially better than the JS equivalent.
+
+**Consequence: the Python tier is not needed until Phase 2.** Phase 1 is TypeScript only — building a Python service earlier would be scaffolding with nothing to run.
 
 **The seam is the risk**, so it is designed explicitly: contracts are defined once as Zod schemas in `packages/contracts`, and a build step emits JSON Schema plus generated Pydantic models. Neither side hand-writes the other's types, and a contract change fails the build on both sides.
 
-*Rejected:* all-Python (loses typed UI integration) and all-TypeScript (would force hosted-only ASR, removing our ability to tune and benchmark the pipeline — see [ASR_BENCHMARK.md](ASR_BENCHMARK.md)).
+*Rejected:* all-Python (loses typed UI integration). An all-TypeScript ingestion tier is no longer unreasonable now that ASR is hosted, and is worth revisiting if the Python surface stays thin — the decision is reversible because extraction sits behind the `Extractor` interface ([AI_PIPELINE.md](AI_PIPELINE.md) §5).
 
 ### 3.3 Drizzle ORM — sole owner of schema and migrations
 
@@ -128,13 +130,57 @@ This is not a compromise, it is a better fit:
 
 Binary files never enter Postgres (§18). Browsers upload directly via presigned URLs, so large media never transits the API tier. MinIO locally, S3/R2 in production, both behind a `StorageProvider` interface, following the same pattern as §6.
 
-### 3.6 Next.js (App Router) + React
+### 3.6 One responsive application for web and mobile
 
-Server components for data-dense pages, one deployment for UI and API, and a straightforward PWA path when offline caching arrives later. RTL and localization are handled at the framework level (§8).
+Sanad must work on both web and mobile without becoming two products. The decision is **one Next.js application, installable as a PWA**, with a shared API and a shared domain model — not a web app plus a separately-built native app.
+
+This works because the mobile-critical capabilities are all available to a PWA: `MediaRecorder` for lecture capture, `getUserMedia` constraints for audio cleanup (§3.10), IndexedDB for offline storage, and service workers for offline shell and background upload.
+
+Platform differences are handled by **layout and emphasis, not by a second codebase**: mobile leads with recording, live transcript, quick search, and study sessions; desktop leads with upload, archive management, reading, and the AI workspace. Same endpoints, same domain model, same permission rules.
+
+*Revisit when:* background audio capture with the screen locked, or OS-level media controls, become required. Those are the genuine PWA limits. The remedy then is a thin native shell (Capacitor) around the same application — not a rewrite — which is why the offline layer in §3.10 is designed as a storage/sync abstraction rather than browser-specific code.
+
+RTL and localization are handled at the framework level (§8).
 
 ### 3.7 Auth: server sessions, not stateless JWTs
 
 Opaque session tokens in an httpOnly cookie, sessions stored in Postgres, Argon2id password hashing. Revocation is a row delete — which matters for an app holding recorded lectures. Stateless JWTs would trade that for scale we do not have.
+
+Email and password only for the MVP. Federated sign-in (Google, Apple) is not required now but is **structurally anticipated**: credentials live in an `auth_identities` table keyed by `(provider, provider_account_id)` rather than as columns on `users` ([DATABASE.md](DATABASE.md) §3). Adding a provider is then a new row type, not a migration of the user table and a rewrite of the session layer.
+
+### 3.8 ASR: hosted API, provider-abstracted
+
+No dedicated GPU infrastructure exists for this project, so self-hosting a speech model is not viable for the MVP. ASR is a **hosted API**, selected by the Phase 0 benchmark against Arabic accuracy, English accuracy, code-switching, technical terminology, latency, and timestamp accuracy.
+
+The application is **not committed to that provider**. Everything speech-related goes through `SpeechToTextProvider` (§6); the benchmark harness runs candidates through the same interface; and a later move to a self-hosted model is a configuration change plus an adapter, not a pipeline rewrite.
+
+### 3.9 Embeddings: one locked open-source model, self-hosted on CPU
+
+Cost is a real constraint for this project, and embeddings are the one AI capability where a free option is genuinely competitive with paid APIs.
+
+**Locked for the MVP: BGE-M3, 1024 dimensions.** It is MIT-licensed, natively multilingual with strong Arabic performance, and 1024 dimensions matches the schema already designed — no migration.
+
+Running it without a GPU is workable because the two paths have very different requirements: **ingestion** embedding is a background job where throughput matters and latency does not, and **query** embedding is a single short text per search, served from an int8-quantised ONNX export to stay inside the p95 search budget ([API.md](API.md) §12).
+
+The model is locked deliberately. Mixed embedding models in one index produce silently incomparable vectors, so changing it is an explicit, versioned backfill ([DATABASE.md](DATABASE.md) §12) — never an incidental config edit. It stays behind `EmbeddingProvider` so the swap remains possible.
+
+### 3.10 Offline-first client
+
+University connectivity is unreliable, and a lecture happens once. **Recording must never require a network.**
+
+```
+record locally (IndexedDB)  →  queue  →  connectivity returns
+   →  resumable chunked upload  →  server processing  →  available everywhere
+```
+
+Four properties this demands, none of which can be bolted on later:
+
+1. **Capture is local-first.** Audio is written to IndexedDB as it is recorded; upload is a separate, later concern. Losing the network mid-lecture changes nothing about the recording.
+2. **Uploads are resumable and idempotent.** Every recording carries a client-generated ID and a checksum; an interrupted upload resumes by byte offset, and a retried upload is recognised rather than duplicated ([API.md](API.md) §5).
+3. **Downloaded content is readable offline.** Transcripts, summaries, flashcards, notes, materials, lecture metadata, and downloaded recordings are cached client-side and served from cache when offline.
+4. **Sync state is visible.** Queued, uploading, processing, ready, and failed are user-facing states, not hidden retries. A student must be able to see that last Tuesday's lecture has not uploaded yet.
+
+**AI inference stays server-side.** Offline means recording and reading work without a network; processing happens when connectivity returns. That is stated precisely everywhere it is claimed — Sanad does not run models on the device, and will not say it does.
 
 ---
 
@@ -143,11 +189,11 @@ Opaque session tokens in an httpOnly cookie, sessions stored in Postgres, Argon2
 ```
 sanad/
 ├── apps/
-│   ├── web/                    # Next.js — UI, REST API, SSE, WebSocket gateway
+│   ├── web/                    # Next.js — responsive PWA, REST API, SSE, WebSocket gateway
 │   │   ├── app/(auth)/         # sign-in, registration
 │   │   ├── app/(app)/          # dashboard, course, lecture, workspace
 │   │   └── app/api/v1/         # REST handlers — thin, delegate to packages/core
-│   └── ai/                     # Python — FastAPI + job runner
+│   └── ai/                     # Python — FastAPI + job runner   (from Phase 2)
 │       ├── asr/                # streaming recognition, VAD, confidence
 │       ├── ingestion/          # extractors per file type, chunking
 │       ├── enrichment/         # summaries, keywords, topics, emphasis, generation
@@ -158,7 +204,8 @@ sanad/
 │   │                           #   mastery, scheduler, permissions
 │   ├── contracts/              # Zod schemas → JSON Schema → Pydantic
 │   ├── providers/              # provider interfaces + adapters (TS side)
-│   └── ui/                     # design system, RTL-aware primitives
+│   ├── offline/                # local store, upload queue, sync state (from Phase 3)
+│   └── ui/                     # design system, RTL-aware, responsive primitives
 ├── seed/                       # demo courses, vocabulary, emphasis cues
 ├── benchmarks/asr/             # datasets, harness, results
 └── scripts/                    # check-course-agnostic.sh, migrate, seed
@@ -247,7 +294,16 @@ interface SummarizationProvider { summarize(req: SummarizationRequest): Promise<
 2. **Capabilities are declared.** Callers branch on `provider.capabilities`, never on a provider's name.
 3. **Selection is configuration.** Provider and model per capability come from environment config, overridable per course for evaluation — which is what lets [ASR_BENCHMARK.md](ASR_BENCHMARK.md) run competing engines against the same audio through the same code path.
 
-Initial selections and cost analysis are in [AI_PIPELINE.md](AI_PIPELINE.md) §11.
+Selections for the MVP:
+
+| Capability | Choice | Hosting | Locked? |
+|---|---|---|---|
+| Speech-to-text | Decided by [ASR_BENCHMARK.md](ASR_BENCHMARK.md) | Hosted API (§3.8) | No — benchmark selects, adapter swaps |
+| Embeddings | BGE-M3, 1024-d | Self-hosted, CPU + ONNX (§3.9) | **Yes** — index-wide consistency |
+| LLM | Reasoning + fast roles | Hosted API | No |
+| Translation | On-demand, per requested language | Hosted API | No |
+
+Cost analysis is in [AI_PIPELINE.md](AI_PIPELINE.md) §11.
 
 ---
 
@@ -255,15 +311,18 @@ Initial selections and cost analysis are in [AI_PIPELINE.md](AI_PIPELINE.md) §1
 
 **Roles:** `student`, `teaching_assistant`, `instructor`, `admin` — on the user, with per-course scoping through `course_enrollments` and `course_staff`.
 
+**Courses are student-owned.** A student creates their own courses; `courses.owner_user_id` is the authority for update and delete. Instructors and TAs hold accounts and roles but have **no course-management permissions** in the MVP — their access becomes meaningful when the deferred community and instructor features arrive. Institution-provisioned courses are future work, and the ownership column is what makes that additive: an institutional course is one whose owner is an institution account rather than a student.
+
 Authorization is **resource-scoped, evaluated centrally** in `packages/core/permissions`. Every data-returning endpoint resolves a subject → resource → action decision; no handler writes its own ownership check, because ownership checks written per-handler are how one endpoint ends up leaking another student's recordings.
 
-| Resource | Student | TA | Instructor | Admin |
+| Resource | Owner | Enrolled student | TA / Instructor | Admin |
 |---|---|---|---|---|
-| Own lectures, materials, notes | CRUD | — | — | read (audit) |
-| Enrolled course content | read | read | read | read |
-| Course vocabulary | read | propose | CRUD | CRUD |
-| Course staff assignment | — | — | — | CRUD |
-| Aggregate analytics | own only | course (deferred) | course (deferred) | all |
+| Course create | self | — | — | — |
+| Course read | yes | yes | — (deferred) | yes |
+| Course update / delete | yes | — | — | yes |
+| Own lectures, materials, notes | CRUD | own only | — | read (audit) |
+| Course vocabulary | CRUD | read | — (deferred) | CRUD |
+| Aggregate analytics | own only | own only | deferred | all |
 
 Personal data is limited to what §20 lists. Recordings belong to the student who made them; instructor-uploaded content is a separate future path (§23) and is deliberately not modelled as instructor access to student recordings.
 
@@ -271,7 +330,9 @@ Personal data is limited to what §20 lists. Recordings belong to the student wh
 
 ## 8. Frontend structure
 
-Four surfaces (§21): **Dashboard**, **Course**, **Lecture**, and the **AI Workspace** that unifies transcript, materials, search, chat, and sources.
+Four surfaces: **Dashboard**, **Course**, **Lecture**, and the **AI Workspace** that unifies transcript, materials, search, chat, and sources.
+
+**One layout system, two emphases** (§3.6). The same routes serve both form factors; breakpoints decide density and ordering, not which features exist. Mobile leads with capture and review — record, live transcript, search, study session. Desktop leads with management and depth — upload, archive, reading, workspace. Nothing is available on one platform and missing on the other.
 
 **Source-attributed rendering is a shared primitive.** Every generated string in the UI is rendered by a `<Sourced>` component that takes content plus validated citations and renders jump-to-source affordances. There is no path to display generated text without passing through it — which is how §22 becomes structural rather than a convention people forget.
 
@@ -293,6 +354,10 @@ Four surfaces (§21): **Dashboard**, **Course**, **Lecture**, and the **AI Works
 
 **Testing.** Unit tests for pure domain logic (scheduler, mastery, citation validation, RRF); integration tests against a real Postgres via Testcontainers; contract tests asserting the TS and Python views of a payload agree; and evaluation suites for retrieval quality and refusal behaviour, which are correctness tests here rather than nice-to-haves.
 
+**Privacy and consent.** Sanad records people speaking. A consent flow ships **before any real lecture audio is collected** — including benchmark audio — covering what is recorded, where it is stored, how long it is kept, and how to delete it. Acknowledgement is recorded per user with a version, so a policy change can require re-acknowledgement ([DATABASE.md](DATABASE.md) §16).
+
+**Retention.** Recordings are retained until the end of the academic term they belong to, extended through a summer term for students enrolled in one, and are deletable by the student at any time. Everything derived — transcripts, summaries, flashcards, questions, notes, metadata — persists until the student deletes it or their account. The asymmetry is deliberate: audio is the large, sensitive asset with a natural expiry; the study material built from it is the thing a student needs next semester.
+
 **Accessibility.** Keyboard-navigable transcript and citation jumps, visible focus, semantic landmarks, captions as first-class text. A transcription product that fails a screen reader would be an embarrassing irony.
 
 ---
@@ -307,24 +372,43 @@ Ranked by probability × impact.
 | 2 | **Silent translation instead of transcription** | Whisper-family models sometimes translate at a language switch; quiet and destroys code-switching | Pin task=transcribe; make translation-leak an explicit benchmark metric with a hard ceiling |
 | 3 | **Cross-lingual retrieval misses** | Arabic query must find English content or search fails for the target user | Multilingual embeddings + vocabulary-driven term expansion at index time; Arabic query set in the retrieval eval |
 | 4 | **Citations that look valid but aren't** | Destroys the product's core trust claim | Validation against the retrieved set; anchors resolved from rows, never model output; refusal on zero survivors |
-| 5 | **Cost or latency of enrichment at scale** | Every lecture triggers several LLM passes | Batch API for non-interactive work; prompt caching over stable course context; cost budget per course tracked in logs |
-| 6 | **Schema churn once retrieval is live** | Late migrations over embedded content are expensive | Freeze `content_chunks` and the citation contract at the end of Phase 2 |
-| 7 | **Course-agnostic drift under demo pressure** | A hard-coded shortcut before a deadline is the likeliest way §32 breaks | CI denylist check from day one |
+| 5 | **Offline capture or sync loses a recording** | A lecture happens once; losing it is unrecoverable and the worst failure the product has | Write to IndexedDB during capture, not after; resumable uploads keyed by client ID + checksum; visible sync state; explicit tests for interrupt-and-resume |
+| 6 | **Cost or latency of enrichment at scale** | Every lecture triggers several LLM passes | Batch API for non-interactive work; prompt caching over stable course context; cost budget per course tracked in logs |
+| 7 | **CPU embedding latency misses the search budget** | No GPU; query embedding sits in the interactive path | int8 ONNX export for the query path; measure before Phase 5 completes; fall back to a smaller locked model if the budget cannot be met |
+| 8 | **Schema churn once retrieval is live** | Late migrations over embedded content are expensive | Freeze `content_chunks` and the citation contract at the end of Phase 2 |
+| 9 | **Course-agnostic drift under demo pressure** | A hard-coded shortcut before a deadline is the likeliest way §32 of the brief breaks | CI denylist check from day one |
 
-### Assumptions requiring confirmation
+### Remaining assumptions
 
 1. Lecture recording is initiated by the student on their own device (institutional capture is future work).
 2. A single active live session per user is sufficient for the MVP.
 3. Typical course size is tens of lectures and hundreds of materials — sizing that allows the simplifications in §3.4.
-4. GPU capacity is available for self-hosted ASR during development and demo; if not, decision 3.2 needs revisiting toward hosted ASR.
-5. Handwritten Arabic OCR is best-effort; printed and typed material is the supported path.
+4. Handwritten Arabic OCR is best-effort; printed and typed material is the supported path.
+5. A PWA is sufficient for mobile capture; the native-shell trigger conditions are in §3.6.
+6. Students self-provision reference data (university, faculty, department) at registration when it does not already exist. Entries created this way are marked unverified so institutional data can be reconciled later ([DATABASE.md](DATABASE.md) §3).
 
 ---
 
-## 11. Open questions for review
+## 11. Decisions on record
 
-1. **ASR hosting** — self-hosted GPU, hosted API, or hybrid (streaming self-hosted, batch hosted)? Answered by the Phase 0 benchmark, but budget and hardware constrain it now.
-2. **Embedding model** — a 1024-dimension multilingual model is assumed for index sizing. Confirm before Phase 5, since changing it later means a full re-embed.
-3. **Course provisioning** — does a student create their own courses, or join institution-provisioned ones? Affects `course_offerings` and enrollment UX. Recommendation: student-created for the MVP, institution-provisioned as the additive path.
-4. **Translation scope** — is translated display in the MVP, or only the architecture that supports it? Recommendation: architecture and storage now, one non-source language enabled in the UI later.
-5. **Retention** — how long are recordings kept, and what does account deletion remove? Needs an answer before real lecture audio is collected in Phase 0.
+The open questions from the first review are answered. Recorded here so they are not reopened by accident.
+
+| # | Question | Decision | Consequence |
+|---|---|---|---|
+| 1 | ASR hosting | **Hosted API**, provider-abstracted | §3.8; no GPU dependency; benchmark selects the provider |
+| 2 | Embedding model | **BGE-M3, 1024-d, locked**, self-hosted on CPU | §3.9; schema unchanged; changing it is a versioned backfill |
+| 3 | Course provisioning | **Student-created and student-owned** | §7; `courses.owner_user_id`; institutional provisioning stays additive |
+| 4 | Translation | **In the MVP UI, generated on demand** | Arabic, English, Chinese initially; source always preserved |
+| 5 | Retention | **Recordings until end of term** (through summer term where enrolled); derived content until the student deletes it | §9; consent flow ships before any real audio is collected |
+
+Two further decisions were taken at the same time:
+
+| Question | Decision | Consequence |
+|---|---|---|
+| Web vs. mobile | **One responsive PWA**, shared API and domain model | §3.6 |
+| Offline | **In scope for the MVP** — recording never requires a network; downloaded content is readable offline | §3.10; server-side AI inference only |
+
+### Still open
+
+1. **Hosted ASR provider and price ceiling** — the benchmark ranks accuracy; a monthly budget still has to be set, since hosted ASR is now the project's main recurring cost.
+2. **Term boundaries** — retention keys off academic term end dates. Whether those are seeded per university or entered by the student needs a decision before Phase 2 ([DATABASE.md](DATABASE.md) §3).

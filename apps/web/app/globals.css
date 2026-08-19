@@ -1,0 +1,122 @@
+/*
+ * One layout system, two emphases (ARCHITECTURE.md §3.6 / §8).
+ * Mobile-first; every inline direction uses logical properties so RTL works
+ * by setting dir="rtl" and nothing else.
+ */
+:root {
+  --ground: #f7f8f8;
+  --surface: #ffffff;
+  --line: #d9dfe0;
+  --ink: #12201f;
+  --ink-soft: #4d6060;
+  --ink-faint: #7d8d8d;
+  --accent: #0b6d75;
+  --accent-ink: #ffffff;
+  --danger: #9b2c2c;
+  --radius: 10px;
+  --pad: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #0d1415;
+    --surface: #151e1f;
+    --line: #263335;
+    --ink: #e7eded;
+    --ink-soft: #a3b3b3;
+    --ink-faint: #718384;
+    --accent: #4dc4cd;
+    --accent-ink: #06211f;
+    --danger: #f6a6a6;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body { padding: 0; margin: 0; }
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', Tahoma, 'Noto Sans Arabic', sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell { max-width: 60rem; margin-inline: auto; padding: var(--pad); }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 1rem;
+  border-block-end: 1px solid var(--line);
+  margin-block-end: 1.5rem;
+}
+
+.brand { font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; }
+
+h1 { font-size: clamp(1.5rem, 4vw, 2rem); line-height: 1.2; margin-block: 0 0.5rem; }
+h2 { font-size: 1.15rem; margin-block: 0 0.5rem; }
+p.lede { color: var(--ink-soft); margin-block-start: 0; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.1rem;
+}
+
+.grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 40rem) {
+  .grid { grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+}
+
+form.stack { display: flex; flex-direction: column; gap: 0.85rem; max-width: 26rem; }
+.field { display: flex; flex-direction: column; gap: 0.3rem; }
+label { font-size: 0.85rem; color: var(--ink-soft); }
+
+input, select, textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  width: 100%;
+}
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+button.secondary { background: transparent; color: var(--ink); border-color: var(--line); }
+button[disabled] { opacity: 0.6; cursor: progress; }
+
+a { color: var(--accent); }
+
+.error {
+  color: var(--danger);
+  font-size: 0.9rem;
+  border-inline-start: 3px solid var(--danger);
+  padding-inline-start: 0.7rem;
+}
+
+.muted { color: var(--ink-faint); font-size: 0.9rem; }
+
+.row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }

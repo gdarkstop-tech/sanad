@@ -2,7 +2,7 @@
 
 Evaluation protocol for speech recognition, run in **Phase 0 — before the lecture pipeline is built**.
 
-**Status:** proposed, awaiting review.
+**Status:** decisions finalized — candidates are hosted APIs (§5). Not yet run.
 
 ---
 
@@ -142,12 +142,18 @@ An engine whose confidence is uncorrelated with accuracy cannot support the low-
 
 ## 5. Systems under test
 
+The MVP uses a **hosted API** — there is no GPU infrastructure ([ARCHITECTURE.md](ARCHITECTURE.md) §3.8) — so the candidate set is hosted services, evaluated on the priorities the decision named: Arabic accuracy, English accuracy, code-switching, technical terminology, latency, and timestamp accuracy.
+
 | Candidate | Mode | Notes |
 |---|---|---|
-| Self-hosted Whisper-family, large multilingual | streaming + batch | Baseline; full control over biasing and configuration |
-| Same, with vocabulary biasing enabled | streaming + batch | Isolates the biasing contribution |
-| Hosted multilingual ASR API (≥ 1) | as offered | Tests whether hosted accuracy beats controllability |
-| Best candidate + LLM correction pass | batch | Isolates [AI_PIPELINE.md](AI_PIPELINE.md) §4 stage 3 |
+| Hosted multilingual ASR, provider A | streaming + batch | |
+| Hosted multilingual ASR, provider B | streaming + batch | At least two, or the benchmark cannot rank |
+| Hosted multilingual ASR, provider C | as offered | Include any provider with explicit Arabic support |
+| Best hosted candidate + vocabulary biasing | streaming + batch | Only where the provider exposes a bias/hint parameter |
+| Best hosted candidate + LLM correction pass | batch | Isolates [AI_PIPELINE.md](AI_PIPELINE.md) §4 stage 3 |
+| Self-hosted Whisper-family (reference only) | batch | Not a deployment candidate; establishes what is being given up, and what a later GPU move would buy |
+
+**Vocabulary biasing may not be available on every hosted provider.** Where it is not, stage 1 of term correction is unavailable and stages 2–3 carry the whole load — a real selection criterion, not a footnote, since biasing is the cheapest of the three stages.
 
 All candidates run **through the provider interface** ([AI_PIPELINE.md](AI_PIPELINE.md) §1), not through a side harness. Two reasons: the benchmark then measures the real code path including normalization and segmentation, and any candidate can be adopted by changing configuration.
 
@@ -185,6 +191,9 @@ Proposed for review, to be confirmed before the run so results cannot be rationa
 | Timestamp alignment (±500 ms) | 0.90 | 0.97 |
 | Draft latency p95 | ≤ 3 s | ≤ 2 s |
 | Finalization latency p95 | ≤ 8 s | ≤ 5 s |
+| Cost per audio hour | within the monthly budget at expected volume | — |
+
+Cost is a selection criterion, not a tiebreaker: hosted ASR is the project's main recurring expense, and a provider that wins on accuracy but cannot be afforded at expected lecture volume is not a candidate. Set the monthly budget before the run.
 
 ### Outcomes
 
@@ -194,7 +203,7 @@ Proposed for review, to be confirmed before the run so results cannot be rationa
 
 **Translation leak or hallucination above ceiling** → reject the candidate outright. These cannot be corrected downstream; they produce fluent text that is wrong about what was said, which is precisely the failure mode Sanad exists to avoid.
 
-**No candidate meets the minimums** → stop and escalate before writing pipeline code. Options in order of preference: a stronger hosted engine; a two-pass design where a fast engine drives the live view and a slower, more accurate one produces the archived transcript; or narrowing the live-transcription claim and leading the product with upload-based ingestion. All three are recoverable in Phase 0 and expensive in Phase 8.
+**No candidate meets the minimums** → stop and escalate before writing pipeline code. Options in order of preference: a two-pass design where a fast engine drives the live view and a more accurate one produces the archived transcript (which the offline path already makes natural — see [AI_PIPELINE.md](AI_PIPELINE.md) §2); a stronger but more expensive provider, with the budget revisited; or narrowing the live-transcription claim and leading the product with upload-based ingestion. All three are recoverable in Phase 0 and expensive in Phase 8.
 
 ---
 

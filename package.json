@@ -1,0 +1,31 @@
+{
+  "name": "sanad",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "db:generate": "pnpm --filter @sanad/db generate",
+    "db:migrate": "pnpm --filter @sanad/db migrate",
+    "dev": "pnpm --filter @sanad/web dev",
+    "build": "pnpm --filter @sanad/web build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check:course-agnostic": "bash scripts/check-course-agnostic.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "dotenv": "^16.4.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "drizzle-orm": "^0.38.3",
+    "postgres": "^3.4.5",
+    "zod": "^3.24.1",
+    "uuid": "^11.0.5",
+    "@node-rs/argon2": "^2.0.2"
+  }
+}

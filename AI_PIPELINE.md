@@ -2,7 +2,7 @@
 
 Every AI pipeline in Sanad: what runs, in what order, with which guarantees.
 
-**Status:** proposed, awaiting review.
+**Status:** decisions finalized. Not yet implemented — Phase 1 is the foundation only.
 
 **Governing principle:** the LLM is a component, not the system. It never holds state, never decides a schedule, and never produces a user-visible claim the database cannot source. Everything it produces passes through validation written in application code.
 
@@ -26,9 +26,28 @@ type ProviderConfig = {
 
 Resolution order: **per-course override → environment config → default**. The per-course override exists so the ASR benchmark ([ASR_BENCHMARK.md](ASR_BENCHMARK.md)) can run competing engines through the production code path rather than a parallel harness that drifts from reality.
 
+Two of the five are settled ([ARCHITECTURE.md](ARCHITECTURE.md) §3.8–3.9): **speech-to-text is a hosted API** because there is no GPU infrastructure, and **embeddings are BGE-M3 at 1024 dimensions, locked and self-hosted on CPU** because a free model is competitive here and index consistency demands one model. Both stay behind their interfaces; "locked" constrains deployment, not design.
+
 ---
 
 ## 2. Live transcription
+
+### Audio capture and preprocessing
+
+Clean audio in is worth more than any correction downstream, so cleanup happens at capture where the signal is best:
+
+```
+getUserMedia({ noiseSuppression, echoCancellation, autoGainControl })
+  → MediaRecorder → local store (IndexedDB)
+```
+
+These constraints are browser-native and free. Where a device does not support them, capture **falls back to plain high-quality recording** rather than failing — a slightly noisier lecture is recoverable, a missing one is not.
+
+Server-side enhancement (denoise, loudness normalization, silence trimming) produces a **derived** audio file: `materials.role='processed'` pointing at its original via `derived_from_material_id` ([DATABASE.md](DATABASE.md) §6). The original is never modified or replaced. ASR runs on the derived version when one exists, and the original remains the archival truth.
+
+### Two capture paths, one pipeline
+
+**Live** streams to ASR during the lecture. **Offline** records locally and uploads later ([ARCHITECTURE.md](ARCHITECTURE.md) §3.10); on arrival it enters the same pipeline in batch mode, producing the same segments, timestamps, confidence, corrections, summaries, and index entries. A lecture recorded on a train with no signal is indistinguishable in the archive from one transcribed live — only the latency differs.
 
 ```
 mic (16 kHz mono PCM)
@@ -78,7 +97,11 @@ Excluding low-confidence spans from flashcards and exam questions is deliberate:
 
 **Code-switching is preserved, not normalized.** A mixed sentence stays mixed. The pipeline never rewrites a technical term into the surrounding language, because a transcript that "fixes" mixed speech into monolingual text destroys exactly the information a student needs.
 
-**Translation is additive and configurable** (§4 of the brief). Target languages are rows, not an enum in code; the source transcript is always retained; translations render as an overlay the student can toggle. No language pair is privileged in code — Arabic, English, and Chinese are configuration values, and adding a fourth is a row plus a provider that supports it.
+**Translation is additive, configurable, and generated on demand.** The student selects a display language; only that language is produced, then cached ([DATABASE.md](DATABASE.md) §4). Pre-generating every supported language for every segment would multiply cost by the length of the language list for translations nobody opens.
+
+Requesting an uncached language returns the source transcript immediately and enqueues a per-lecture job ([API.md](API.md) §4) — batching by lecture rather than by segment, which is both cheaper and more coherent, since a translator with surrounding context produces better results than one seeing isolated fragments.
+
+The source transcript is always retained. No language pair is privileged in code: Arabic, English, and Chinese are the initial configured set, and a fourth is a config entry plus a provider that supports it.
 
 ---
 
@@ -301,13 +324,15 @@ Two LLM roles, selected by task shape rather than by habit:
 
 Initial selection (Claude API; all are replaceable via §1):
 
-| Capability | Initial choice | Notes |
-|---|---|---|
-| LLM — reasoning | `claude-opus-5` (1M context, $5/$25 per MTok) | Adaptive thinking on by default |
-| LLM — fast | `claude-haiku-4-5` (200K, $1/$5 per MTok) | Per-segment work |
-| Embeddings | Multilingual, 1024-d (BGE-M3 or multilingual-e5-large), self-hosted | Strong Arabic; no per-token cost |
-| ASR | Decided by [ASR_BENCHMARK.md](ASR_BENCHMARK.md) | Not chosen in advance |
-| Translation | Same reasoning model initially | Revisit if volume grows |
+| Capability | Choice | Hosting | Cost |
+|---|---|---|---|
+| Embeddings | **BGE-M3, 1024-d — locked** | Self-hosted, CPU (ONNX int8 for queries) | **Free** |
+| ASR | Decided by [ASR_BENCHMARK.md](ASR_BENCHMARK.md) | Hosted API | Per audio-hour — the main recurring cost |
+| LLM — reasoning | `claude-opus-5` (1M context, $5/$25 per MTok) | Hosted | Per token |
+| LLM — fast | `claude-haiku-4-5` (200K, $1/$5 per MTok) | Hosted | Per token |
+| Translation | Reasoning model initially | Hosted | On demand only |
+
+Embeddings are the one capability where a free model is genuinely competitive with a paid API, which is why that is where the free option is taken. ASR is the opposite: accuracy on code-switched technical speech is the product's foundation, and there is no free self-hosted path without a GPU.
 
 ### Cost estimate, per lecture
 
@@ -322,6 +347,10 @@ A 50-minute lecture is roughly 12–20K tokens (Arabic tokenizes more heavily th
 | **Per lecture** | **~$0.20** |
 | Full course exam pack (batched) | ~$1.50 |
 | Grounded answer (cached course context) | a few cents |
+| Embeddings | $0 — self-hosted |
+| Transcription | hosted ASR rate × audio hours — **budget this separately** |
+
+Translation is excluded from the per-lecture figure because it is generated only for languages a student actually opens.
 
 A full semester course is a few dollars. **Cost is not a constraint at demo scale**, and engineering time is better spent on transcription accuracy and retrieval quality — the two things that can actually fail visibly.
 

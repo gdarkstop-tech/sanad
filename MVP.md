@@ -2,13 +2,13 @@
 
 Scope, phases, and the demo narrative.
 
-**Status:** proposed, awaiting review.
+**Status:** decisions finalized. **Phase 1 complete**; Phases 2–11 not started.
 
 ---
 
 ## 1. What the MVP is
 
-Thirteen capabilities forming **one connected system**, not thirteen features sharing a login:
+Sixteen capabilities forming **one connected system**, not sixteen features sharing a login:
 
 | # | Capability | Depends on |
 |---|---|---|
@@ -25,8 +25,13 @@ Thirteen capabilities forming **one connected system**, not thirteen features sh
 | 11 | Professor-emphasis detection | 1 |
 | 12 | AI study coach | 13, exam dates |
 | 13 | Structured learning memory | 9 |
+| 14 | On-demand transcript translation | 1 |
+| 15 | Offline lecture recording and sync | 1 |
+| 16 | Offline access to downloaded content | 4, 5, 8, 9 |
 
 The dependency column is the argument for the ordering in §4: nothing can be built before what it reads from exists.
+
+Capabilities 14–16 came from the final decision round. **15 is not a convenience feature** — university connectivity is unreliable and a lecture happens once, so recording that depends on a network is recording that sometimes loses the lecture entirely.
 
 ### The one-sentence product
 
@@ -38,13 +43,20 @@ The dependency column is the argument for the ordering in §4: nothing can be bu
 
 Deferred (§23 of the brief) — architected for, not built:
 
-student community · TA dashboard · instructor dashboard · AI-generated FAQ · voice chat · AI whiteboard · advanced multilingual translation UI · professor upload portal · gamification · offline downloaded lectures · institutional analytics · AI video or avatar tutor
+student community · TA dashboard · instructor dashboard · AI-generated FAQ · voice chat · AI whiteboard · professor upload portal · gamification · institutional analytics · AI video or avatar tutor · university-wide course provisioning
 
 **Why these are deferred**, so the decision isn't reopened under deadline pressure: each either requires a user population that does not exist yet (community, FAQ, dashboards, analytics), or adds a delivery surface without adding a capability the system lacks (voice chat, avatar, whiteboard).
 
 They are not casualties of the schedule; they are the second half of the story. Sanad begins with one student in one lecture and grows into an institutional academic layer. Presenting them that way is stronger than presenting a half-built version of any of them.
 
-**Offline** stays out per §24. When it arrives, it will be described exactly as "downloaded lectures work offline" — transcripts, summaries, flashcards, local search — never as offline AI inference, which is not implemented and will not be claimed.
+**Two items moved into scope** in the final decision round, and this document previously listed them here:
+
+- **Translation** is now part of the MVP UI — Arabic, English, and Chinese, generated on demand for the language the student selects.
+- **Offline** is now part of the MVP — recording without a network, and reading downloaded content without a network.
+
+**What offline still does not mean.** No AI inference runs on the device. Recording and reading work offline; transcription, summarization, and generation happen when connectivity returns. That is how it is described everywhere, and Sanad will not claim otherwise.
+
+Instructors and TAs have accounts and roles, but **no course-management permissions** — courses are student-owned. Their access becomes meaningful when the deferred community and instructor features arrive.
 
 ---
 
@@ -72,31 +84,41 @@ Architecture documents (this set) reviewed and approved. Then the benchmark in [
 
 > **Exit:** an ASR engine and configuration selected against measured thresholds, with the result documented and the decision recorded.
 
-### Phase 1 — Foundation
+### Phase 1 — Foundation ✅
 
-Monorepo, TypeScript config, Drizzle migrations, Postgres + pgvector running, authentication with all four roles, permission layer, CI including the course-agnostic check, structured logging, error handling, secrets validated at boot.
+Monorepo and TypeScript configuration. Postgres + pgvector. Drizzle schema and the first migration covering identity, academic structure, and courses. Environment configuration validated at boot. Email/password authentication over `auth_identities`, Argon2id, server sessions. Role model and the central permission layer. Student profiles with inline reference-data creation. Student-owned courses with create, list, update, and delete. Responsive application shell with RTL support. Tests for the database and authentication foundation.
 
-> **Exit:** a user of each role can sign in and reach an authorized empty state; migrations run clean from scratch.
+No AI, no ingestion, no retrieval — those are later phases and depend on this one.
 
-### Phase 2 — Academic structure and materials
+> **Exit:** a student registers, signs in, creates a course of any subject, and sees only their own; a non-owner cannot modify it; migrations run clean from an empty database; database and auth tests pass.
 
-Universities → faculties → departments → courses → offerings → enrollment. Lectures. Material upload via presigned URLs, extraction for every listed type, `material_chunks`, job queue with visible status.
+### Phase 2 — Lectures and materials
+
+Academic structure and course ownership land in Phase 1; this phase builds on them. Lectures. Object storage. Material upload, extraction for every listed type, `material_chunks`, the Python ingestion tier, and the job queue with visible status.
 
 **The `content_chunks` schema and the citation contract freeze at the end of this phase** — everything downstream reads them, and late migrations over embedded content are expensive.
 
 > **Exit:** two courses from different disciplines exist, with materials uploaded and extracted, entirely through the UI.
 
-### Phase 3 — Transcript processing
+### Phase 3 — Transcript processing and offline capture
 
-Live capture over WebSocket, VAD, windowed recognition, draft/final rendering, `transcript_segments` with immutable raw text, confidence bands, session lifecycle, recording stored in object storage.
+Live capture over WebSocket, VAD, windowed recognition against the hosted ASR provider, draft/final rendering, `transcript_segments` with immutable raw text, confidence bands, session lifecycle.
 
-> **Exit:** a real lecture recording produces a timestamped transcript; raw output remains retrievable; low-confidence spans are marked.
+**Offline capture ships in this phase, not later.** Local recording to IndexedDB, the upload queue, resumable chunked uploads keyed by `client_ref`, duplicate prevention, visible sync states, and audio capture constraints with graceful fallback. Recording offline and recording live must produce the same archive entry.
+
+> **Exit:** a real lecture recording produces a timestamped transcript with raw output retrievable and low-confidence spans marked — **and** a lecture recorded with networking disabled, then reconnected, arrives complete, is not duplicated by a retry, and resumes rather than restarting after an interrupted upload.
 
 ### Phase 4 — Vocabulary and term correction
 
 `technical_terms`, `course_vocabulary`, the three-stage correction pipeline, `term_corrections` audit rows, vocabulary derivation from course materials, vocabulary management UI.
 
 > **Exit:** a course with no vocabulary can bootstrap one from its own materials, and corrections measurably improve technical-term accuracy on the benchmark audio.
+
+### Phase 4b — Transcript translation
+
+On-demand per-lecture translation into the student's selected display language, cached in `transcript_translations`, with the source always preserved and the supported-language list held in configuration.
+
+> **Exit:** a student switches an Arabic transcript to English and to Chinese; the source remains retrievable; a second request for the same language is served from cache.
 
 ### Phase 5 — Embeddings and unified search
 
@@ -128,11 +150,17 @@ Mastery updates on every graded interaction, availability and commitment capture
 
 > **Exit:** two students with different quiz histories and different calendars receive materially different plans; plans regenerate identically from their snapshots.
 
-### Phase 10 — Testing, polish, demo
+### Phase 10 — Offline content access
+
+Offline manifest per course, client-side caching of transcripts, summaries, flashcards, questions, notes, materials, and lecture metadata. Explicit download-for-offline. Cache invalidation by content hash. Honest offline states — what is available, what needs a network.
+
+> **Exit:** with networking disabled, a student opens a downloaded course and reads its transcripts, summaries, and flashcards, and runs a study session; AI chat states plainly that it needs a connection.
+
+### Phase 11 — Testing, polish, demo
 
 Integration and evaluation suites green, RTL and localization verified, accessibility pass, seed data complete for both courses, demo rehearsed end to end, fallback recording captured.
 
-> **Exit:** the §5 narrative runs start to finish, twice, without intervention.
+> **Exit:** the §5 narrative runs start to finish, twice, without intervention, including the offline capture beat.
 
 ---
 
@@ -186,10 +214,13 @@ The 21 steps from the brief, mapped to the capability each exercises. Any course
 
 1. All thirteen capabilities work end to end for a single student.
 2. The course-agnostic acceptance test (§3) passes on two unrelated disciplines.
+2a. Courses are student-created and student-owned; no subject is enumerated server-side.
 3. Zero fabricated answers across the refusal test set.
 4. Zero unresolvable citations across the citation test set.
 5. Zero generated study items without a source reference.
 6. Raw transcripts remain retrievable for every processed lecture.
+6a. A lecture recorded offline reaches the archive intact after reconnection, without duplication.
+6b. Downloaded course content is readable with networking disabled.
 7. The scheduler violates none of its guarantees under property testing.
 8. Arabic RTL renders correctly, including mixed-script transcript segments.
 9. Migrations run clean from an empty database; seeds load both demo courses.

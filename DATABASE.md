@@ -2,7 +2,7 @@
 
 PostgreSQL schema design for Sanad. Every academic concept is data; none is code.
 
-**Status:** proposed, awaiting review.
+**Status:** decisions finalized. Identity, academic structure, and courses are implemented in migration `0000`; later domains are designed but not yet migrated.
 
 ---
 
@@ -41,6 +41,13 @@ erDiagram
     course_offerings ||--o{ course_enrollments : enrolls
     course_offerings ||--o{ course_staff : "taught by"
     users ||--o{ course_enrollments : joins
+    users ||--o{ auth_identities : "signs in with"
+    users ||--o{ consents : grants
+    users ||--o{ courses : owns
+    academic_years ||--o{ academic_terms : "divided into"
+    academic_terms ||--o{ course_offerings : "retention horizon"
+    materials ||--o{ upload_sessions : "resumed by"
+    materials ||--o{ materials : "processed from"
 
     course_offerings ||--o{ lectures : contains
     lectures ||--o{ lecture_sessions : "captured in"
@@ -84,7 +91,6 @@ CREATE TABLE users (
   id                uuid PRIMARY KEY,
   email             text NOT NULL,
   email_normalized  text NOT NULL,
-  password_hash     text NOT NULL,
   role              user_role NOT NULL DEFAULT 'student',
   display_name      text NOT NULL,
   interface_locale  text NOT NULL DEFAULT 'en',     -- BCP-47; independent of content language
@@ -96,6 +102,29 @@ CREATE TABLE users (
   CONSTRAINT users_email_normalized_key UNIQUE (email_normalized)
 );
 
+**Credentials are not columns on `users`.** Email/password is the only MVP method, but it is stored as one row in `auth_identities` so that adding Google or Apple later is a new row type rather than a migration of the user table ([ARCHITECTURE.md](ARCHITECTURE.md) §3.7).
+
+```sql
+CREATE TYPE auth_provider AS ENUM ('password', 'google', 'apple');
+
+CREATE TABLE auth_identities (
+  id                  uuid PRIMARY KEY,
+  user_id             uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider            auth_provider NOT NULL,
+  provider_account_id text NOT NULL,        -- email for 'password'; subject id for federated
+  password_hash       text,                 -- Argon2id; null for federated providers
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  last_used_at        timestamptz,
+  UNIQUE (provider, provider_account_id),
+  CONSTRAINT auth_identities_password_ck
+    CHECK ((provider = 'password') = (password_hash IS NOT NULL))
+);
+CREATE INDEX auth_identities_user_idx ON auth_identities (user_id);
+```
+
+The `CHECK` makes the two states mutually exclusive: a password identity always has a hash, a federated identity never does.
+
+```sql
 CREATE TABLE sessions (
   id           uuid PRIMARY KEY,
   user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -107,17 +136,26 @@ CREATE TABLE sessions (
 );
 CREATE INDEX sessions_user_idx ON sessions (user_id, expires_at DESC);
 
+Registration asks for university, faculty, and department. None of that data exists on day one, so **a student may create a reference entry that is missing**, marked unverified. Without this, registration deadlocks on empty reference tables.
+
+```sql
 CREATE TABLE universities (
-  id         uuid PRIMARY KEY,
-  name       text NOT NULL,
-  country    text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  id          uuid PRIMARY KEY,
+  name        text NOT NULL,
+  country     text,
+  is_verified boolean NOT NULL DEFAULT false,   -- false = student-provisioned
+  created_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (name, country)
 );
 
 CREATE TABLE faculties (
   id            uuid PRIMARY KEY,
   university_id uuid NOT NULL REFERENCES universities(id) ON DELETE CASCADE,
   name          text NOT NULL,
+  is_verified   boolean NOT NULL DEFAULT false,
+  created_by    uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
   UNIQUE (university_id, name)
 );
 
@@ -125,6 +163,9 @@ CREATE TABLE departments (
   id          uuid PRIMARY KEY,
   faculty_id  uuid NOT NULL REFERENCES faculties(id) ON DELETE CASCADE,
   name        text NOT NULL,
+  is_verified boolean NOT NULL DEFAULT false,
+  created_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
   UNIQUE (faculty_id, name)
 );
 
@@ -135,6 +176,18 @@ CREATE TABLE academic_years (
   starts_on     date NOT NULL,
   ends_on       date NOT NULL,
   UNIQUE (university_id, label),
+  CHECK (ends_on > starts_on)
+);
+
+-- Terms carry the dates that drive recording retention (§16)
+CREATE TABLE academic_terms (
+  id               uuid PRIMARY KEY,
+  academic_year_id uuid NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
+  label            text NOT NULL,        -- "Fall", "Semester 2", "Summer"
+  is_summer        boolean NOT NULL DEFAULT false,
+  starts_on        date NOT NULL,
+  ends_on          date NOT NULL,        -- recording retention horizon
+  UNIQUE (academic_year_id, label),
   CHECK (ends_on > starts_on)
 );
 ```
@@ -149,6 +202,7 @@ CREATE TABLE student_profiles (
   university_id    uuid REFERENCES universities(id) ON DELETE SET NULL,
   department_id    uuid REFERENCES departments(id) ON DELETE SET NULL,
   academic_year_id uuid REFERENCES academic_years(id) ON DELETE SET NULL,
+  major            text,                  -- free text; department is the structured field
   student_number   text,
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now(),
@@ -173,35 +227,41 @@ CREATE TABLE teaching_assistant_profiles (
 
 ### Courses and offerings
 
-**Design note — why `course_offerings` exists.** `courses` is the catalogue entry ("CS201 Data Structures"); `course_offerings` is one delivery of it in one academic year. Content, enrollment, and staffing hang off the *offering*, because the same course taught next year is a different set of lectures with a different instructor. Without this split, `academic_years` has nowhere meaningful to attach and reusing a course across years corrupts one year's retrieval scope with another's.
+**Design note — why `course_offerings` exists.** `courses` is the catalogue entry ("CS201 Data Structures"); `course_offerings` is one delivery of it in one academic term. Content, enrollment, and staffing hang off the *offering*, because the same course taken next year is a different set of lectures. Without this split, academic terms have nowhere meaningful to attach, reusing a course across years corrupts one year's retrieval scope with another's, and recording retention — which keys off the term end date (§16) — has no anchor.
+
+**Courses are student-owned.** `owner_user_id` is the authority for update and delete. A student creating "Physics" gets a course *and* one offering in the current term, created together in a single transaction — the split never surfaces in the UI. `university_id` is nullable, because a student may create a course before any institutional record exists.
 
 The API presents an offering to a student simply as "a course" ([API.md](API.md) §5); the split is internal.
 
 ```sql
 CREATE TABLE courses (
   id            uuid PRIMARY KEY,
-  university_id uuid NOT NULL REFERENCES universities(id) ON DELETE CASCADE,
+  owner_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,  -- authority for update/delete
+  university_id uuid REFERENCES universities(id) ON DELETE SET NULL,
   department_id uuid REFERENCES departments(id) ON DELETE SET NULL,
   code          text,                       -- "CS201" — opaque to the application
   title         text NOT NULL,
   description   text,
-  created_by    uuid REFERENCES users(id) ON DELETE SET NULL,
+  color         text,                       -- UI affordance only
   is_demo       boolean NOT NULL DEFAULT false,   -- seed fixtures flag themselves
   created_at    timestamptz NOT NULL DEFAULT now(),
-  updated_at    timestamptz NOT NULL DEFAULT now()
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  deleted_at    timestamptz
 );
+CREATE INDEX courses_owner_idx ON courses (owner_user_id) WHERE deleted_at IS NULL;
 
 CREATE TABLE course_offerings (
-  id                    uuid PRIMARY KEY,
-  course_id             uuid NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-  academic_year_id      uuid REFERENCES academic_years(id) ON DELETE SET NULL,
-  term                  text,                        -- "Fall" / "Semester 1" — a label
-  primary_language      text NOT NULL DEFAULT 'ar',  -- content language hint, not a constraint
-  secondary_languages   text[] NOT NULL DEFAULT '{}',-- e.g. {en} for code-switched delivery
-  question_profile      jsonb NOT NULL DEFAULT '{}', -- per-course generation config; never subject logic in code
-  created_at            timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (course_id, academic_year_id, term)
+  id                  uuid PRIMARY KEY,
+  course_id           uuid NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  term_id             uuid REFERENCES academic_terms(id) ON DELETE SET NULL,
+  term_label          text,                        -- fallback when no institutional term exists
+  primary_language    text NOT NULL DEFAULT 'ar',  -- content language hint, not a constraint
+  secondary_languages text[] NOT NULL DEFAULT '{}',-- e.g. {en} for code-switched delivery
+  question_profile    jsonb NOT NULL DEFAULT '{}', -- per-course generation config; never subject logic in code
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (course_id, term_id)
 );
+CREATE INDEX course_offerings_course_idx ON course_offerings (course_id);
 
 CREATE TYPE enrollment_status AS ENUM ('active', 'completed', 'dropped');
 
@@ -295,18 +355,25 @@ CREATE INDEX transcript_segments_low_conf_idx
 
 The source transcript always remains (§4 of the brief). Translations are additive rows, and any number of target languages may exist.
 
+**Generated on demand, then cached.** A student selects a display language and only that language is produced. Pre-generating every supported language for every segment would multiply cost and latency by the size of the language list for translations nobody reads.
+
 ```sql
 CREATE TABLE transcript_translations (
-  id                uuid PRIMARY KEY,
-  segment_id        uuid NOT NULL REFERENCES transcript_segments(id) ON DELETE CASCADE,
-  target_language   text NOT NULL,             -- BCP-47; no fixed set in code
-  text              text NOT NULL,
-  provider          text NOT NULL,
-  model             text NOT NULL,
-  created_at        timestamptz NOT NULL DEFAULT now(),
+  id              uuid PRIMARY KEY,
+  segment_id      uuid NOT NULL REFERENCES transcript_segments(id) ON DELETE CASCADE,
+  lecture_id      uuid NOT NULL REFERENCES lectures(id) ON DELETE CASCADE,  -- batch by lecture
+  target_language text NOT NULL,             -- BCP-47; no fixed set in code
+  text            text NOT NULL,
+  provider        text NOT NULL,
+  model           text NOT NULL,
+  created_at      timestamptz NOT NULL DEFAULT now(),
   UNIQUE (segment_id, target_language)
 );
+CREATE INDEX transcript_translations_lecture_lang_idx
+  ON transcript_translations (lecture_id, target_language);
 ```
+
+Requesting a language that is not yet cached enqueues a per-lecture translation job and returns the source transcript meanwhile ([API.md](API.md) §4). The supported-language list is configuration, not an enum — Arabic, English, and Chinese are the initial set, and a fourth is a config entry plus a provider that supports it.
 
 ---
 
@@ -409,7 +476,8 @@ CREATE INDEX lecture_emphasis_lecture_idx ON lecture_emphasis (lecture_id, t_sta
 
 ```sql
 CREATE TYPE material_type      AS ENUM ('pdf','ppt','pptx','doc','docx','image','audio','video','text','other');
-CREATE TYPE processing_status  AS ENUM ('uploaded','extracting','chunking','embedding','ready','failed');
+CREATE TYPE processing_status  AS ENUM ('pending_upload','uploaded','extracting','chunking','embedding','ready','failed');
+CREATE TYPE material_role      AS ENUM ('original','processed');
 
 CREATE TABLE materials (
   id                uuid PRIMARY KEY,
@@ -425,13 +493,28 @@ CREATE TABLE materials (
   storage_key       text NOT NULL,          -- reference only; bytes never in Postgres
   page_count        integer,
   duration_ms       integer,
-  processing_status processing_status NOT NULL DEFAULT 'uploaded',
+  processing_status processing_status NOT NULL DEFAULT 'pending_upload',
   processing_error  text,
+
+  -- audio processing (§10 of the brief): the original is never replaced
+  role                   material_role NOT NULL DEFAULT 'original',
+  derived_from_material_id uuid REFERENCES materials(id) ON DELETE CASCADE,
+
+  -- offline capture: idempotency for retried uploads
+  client_ref        text,                    -- client-generated id, stable across retries
+
+  -- retention (§16)
+  retention_expires_at timestamptz,          -- null = derived content, kept indefinitely
+
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
   deleted_at        timestamptz,
-  UNIQUE (offering_id, checksum_sha256)      -- same file uploaded twice is one material
+  UNIQUE (offering_id, checksum_sha256),     -- same file uploaded twice is one material
+  UNIQUE (uploader_user_id, client_ref),     -- same recording retried is one material
+  CONSTRAINT materials_derived_ck CHECK ((role = 'processed') = (derived_from_material_id IS NOT NULL))
 );
+CREATE INDEX materials_retention_idx ON materials (retention_expires_at)
+  WHERE retention_expires_at IS NOT NULL AND deleted_at IS NULL;
 CREATE INDEX materials_offering_idx ON materials (offering_id, created_at DESC) WHERE deleted_at IS NULL;
 
 ALTER TABLE lecture_sessions
@@ -914,7 +997,9 @@ UPDATE content_chunks SET search_tsv = to_tsvector('simple', text_normalized) WH
 
 ## 12. Embedding versioning
 
-`embedding_model` and `embedding_dimensions` are stored per row (see [ARCHITECTURE.md](ARCHITECTURE.md) §6). A model change is then an explicit, resumable backfill rather than a silent corruption:
+**The MVP locks one model: BGE-M3 at 1024 dimensions** ([ARCHITECTURE.md](ARCHITECTURE.md) §3.9). `vector(1024)` in §6 is that decision, not a placeholder.
+
+`embedding_model` and `embedding_dimensions` are still stored per row, because "locked" means *changed deliberately*, not *never changed*. A model change is then an explicit, resumable backfill rather than a silent corruption:
 
 1. Deploy the new provider; new chunks embed with the new model.
 2. Backfill job re-embeds old rows in batches.
@@ -948,10 +1033,75 @@ A single modest Postgres instance holds hundreds of course-offerings comfortably
 - Seed data lives in `seed/` and is loaded by an explicit command, never automatically.
 - **Every seed course is flagged `is_demo = true`** and lives entirely in data. Demo courses (Digital Logic among them) exist as fixtures; the CI course-agnostic check ([ARCHITECTURE.md](ARCHITECTURE.md) §1.1) fails the build if their vocabulary appears anywhere in application code.
 
-## 15. Retention and deletion
+## 15. Offline capture and upload sessions
 
-Open for review (see [ARCHITECTURE.md](ARCHITECTURE.md) §11.5), and needs an answer before real lecture audio is collected:
+A recording is made offline, queued, and uploaded when connectivity returns ([ARCHITECTURE.md](ARCHITECTURE.md) §3.10). Two failure modes the schema has to prevent: a partial upload restarting from zero, and a retried upload becoming a second copy of the same lecture.
 
-- Account deletion cascades from `users` through all owned content, plus an object-storage sweep for orphaned keys.
-- Recordings are the largest and most sensitive asset; a default retention window should be decided rather than defaulted to "forever".
-- `qa_messages` and `search_history` contain lecture content and study behaviour — same retention policy as the content itself.
+```sql
+CREATE TYPE upload_status AS ENUM ('pending','in_progress','completed','aborted','expired');
+
+CREATE TABLE upload_sessions (
+  id                 uuid PRIMARY KEY,
+  user_id            uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  material_id        uuid NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+  client_ref         text NOT NULL,          -- same value as materials.client_ref
+  total_bytes        bigint NOT NULL,
+  received_bytes     bigint NOT NULL DEFAULT 0,
+  chunk_size         integer NOT NULL,
+  storage_upload_id  text,                   -- provider multipart id
+  storage_parts      jsonb NOT NULL DEFAULT '[]',  -- [{part_no, etag, bytes}]
+  checksum_sha256    text NOT NULL,          -- computed client-side before upload starts
+  status             upload_status NOT NULL DEFAULT 'pending',
+  attempts           integer NOT NULL DEFAULT 0,
+  last_error         text,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now(),
+  expires_at         timestamptz NOT NULL,
+  UNIQUE (user_id, client_ref)
+);
+CREATE INDEX upload_sessions_resumable_idx ON upload_sessions (user_id, status)
+  WHERE status IN ('pending','in_progress');
+```
+
+**How the two failure modes are closed.** `received_bytes` and `storage_parts` let a client ask "where did I get to?" and resume from that offset rather than the beginning — which matters when a lecture recording is tens of megabytes on a bad connection. `UNIQUE (user_id, client_ref)` on both this table and `materials` means a retry after an ambiguous network failure resolves to the *same* row: the client generates the ID before recording starts, so retrying is idempotent by construction rather than by server-side guesswork.
+
+`checksum_sha256` is computed before upload begins and verified on completion. A mismatch fails the session rather than ingesting a corrupted recording.
+
+---
+
+## 16. Retention, consent, and deletion
+
+### Recordings expire; derived content does not
+
+| Data | Retention |
+|---|---|
+| Lecture recordings (`materials` where `role='original'`, audio/video) | Until the **end of the academic term** the offering belongs to; extended to the end of the summer term for students enrolled in one |
+| Derived audio (`role='processed'`) | Deleted with its original |
+| Transcripts, summaries, keywords, flashcards, questions, notes, metadata | **Indefinite** — until the student deletes them or their account |
+| `qa_messages`, `search_history` | With the account |
+
+`materials.retention_expires_at` is set at upload time from the offering's `academic_terms.ends_on`, which is why terms carry dates (§3). A nightly job deletes expired recordings and their storage objects. Students may delete a recording earlier at any time.
+
+The asymmetry is deliberate. Audio is the large, sensitive, expensive asset and has a natural expiry; the study material derived from it is what a student needs next semester and beyond. Deleting the recording does not degrade the transcript, the search index, or any citation — anchors point at `transcript_segments`, not at the audio file. A citation whose recording has expired still resolves to its text; only playback is lost, and the UI says so rather than failing.
+
+### Consent
+
+Sanad records people speaking, so consent is captured **before any real lecture audio is collected — including benchmark audio** ([ARCHITECTURE.md](ARCHITECTURE.md) §9).
+
+```sql
+CREATE TABLE consents (
+  id             uuid PRIMARY KEY,
+  user_id        uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  consent_type   text NOT NULL,        -- 'recording' | 'terms' | 'privacy'
+  policy_version text NOT NULL,
+  granted_at     timestamptz NOT NULL DEFAULT now(),
+  revoked_at     timestamptz,
+  UNIQUE (user_id, consent_type, policy_version)
+);
+```
+
+Versioning the policy is what makes a future change enforceable: a new version means the current acknowledgement no longer satisfies the check, and the flow runs again. Recording is blocked until `consent_type='recording'` is granted for the current version.
+
+### Account deletion
+
+Deletion cascades from `users` through every owned row — recordings, uploads, generated content, mastery, plans, conversations, search history — followed by an object-storage sweep for orphaned keys. Cascades are declared in the schema rather than implemented as application cleanup, so a new table cannot be forgotten: the foreign key makes deletion the default and retention the explicit choice.

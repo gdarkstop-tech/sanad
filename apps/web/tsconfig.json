@@ -1,0 +1,37 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@sanad/db": [
+        "../../packages/db/src/index.ts"
+      ],
+      "@sanad/core": [
+        "../../packages/core/src/index.ts"
+      ],
+      "@sanad/contracts": [
+        "../../packages/contracts/src/index.ts"
+      ]
+    },
+    "incremental": true,
+    "isolatedModules": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "../../next-env.d.ts",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

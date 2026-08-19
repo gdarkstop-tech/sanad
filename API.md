@@ -2,7 +2,7 @@
 
 API surface and contracts for Sanad.
 
-**Status:** proposed, awaiting review. Endpoints are specified, not implemented.
+**Status:** decisions finalized. §2, §3, and the reference-data endpoints are implemented (Phase 1); the rest are specified, not implemented.
 
 ---
 
@@ -12,7 +12,7 @@ API surface and contracts for Sanad.
 |---|---|
 | Style | REST over HTTPS, plus WebSocket for live transcription and SSE for streamed answers |
 | Base path | `/api/v1` — the version is in the path so a breaking change is additive, not a coordinated deploy |
-| Auth | httpOnly session cookie, `SameSite=Lax`; CSRF token on state-changing requests |
+| Auth | httpOnly session cookie, `SameSite=Lax`. **Implemented.** A CSRF token on state-changing requests is planned and *not yet implemented* — `SameSite=Lax` blocks cross-site form POSTs, which covers the main vector but is not defence in depth |
 | Content type | `application/json`; file bytes never pass through the API (§5) |
 | IDs | UUIDv7 strings |
 | Timestamps | RFC 3339 UTC (`2026-08-19T14:03:11Z`) |
@@ -60,16 +60,32 @@ POST /api/v1/auth/register
 {
   "email": "student@university.edu",
   "password": "…",
-  "display_name": "…",
+  "full_name": "…",
   "role": "student",
+  "interface_locale": "ar",              // preferred application language
   "profile": {
-    "university_id": "…", "department_id": "…",
-    "academic_year_id": "…", "student_number": "…"
+    "university":       { "id": "…" } | { "name": "…", "country": "…" },
+    "faculty":          { "id": "…" } | { "name": "…" },
+    "department":       { "id": "…" } | { "name": "…" },   // optional
+    "academic_year_id": "…",
+    "major":            "…",             // optional free text
+    "student_number":   "…"              // optional
   }
 }
 ```
 
-Only the fields listed in §20 of the brief are collected. Rate-limited per IP and per email; failures are constant-time and do not reveal whether an address exists.
+**Reference data may be created inline.** Each of `university`, `faculty`, and `department` accepts either an existing ID or a name to create. Entries created this way are marked unverified ([DATABASE.md](DATABASE.md) §3). Without this, registration deadlocks on empty reference tables — nobody can register until someone already has.
+
+Email and password only. Federated providers are anticipated in the schema (`auth_identities`) but not exposed.
+
+Failures are indistinguishable between "no such account" and "wrong password", and always pay the cost of a hash verification so response time does not reveal which it was. **Implemented.** Per-IP and per-email rate limiting is specified but *not yet implemented* — see the known issues in the Phase 1 report.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/reference/universities?q=` | Search, for the registration picker |
+| `GET` | `/reference/universities/{id}/faculties` | |
+| `GET` | `/reference/faculties/{id}/departments` | |
+| `GET` | `/reference/universities/{id}/academic-years` | |
 
 ---
 
@@ -81,12 +97,27 @@ Only the fields listed in §20 of the brief are collected. Rate-limited per IP a
 | `GET` | `/universities/{id}/faculties` | |
 | `GET` | `/faculties/{id}/departments` | |
 | `GET` | `/universities/{id}/academic-years` | |
-| `POST` | `/courses` | Create a course + first offering |
-| `GET` | `/courses` | Courses the caller can see |
+| `POST` | `/courses` | Create a course + its first offering, in one transaction |
+| `GET` | `/courses` | Courses the caller owns or is enrolled in |
 | `GET` | `/courses/{offeringId}` | **`offeringId` throughout** — see below |
-| `PATCH` | `/courses/{offeringId}` | Title, language hints, question profile |
+| `PATCH` | `/courses/{offeringId}` | Title, language hints, question profile — **owner only** |
+| `DELETE` | `/courses/{offeringId}` | Soft delete — **owner only** |
 | `POST` | `/courses/{offeringId}/enroll` | |
-| `GET` | `/courses/{offeringId}/members` | Staff and enrolled students |
+| `GET` | `/courses/{offeringId}/members` | Enrolled students |
+
+**Students own their courses.** `POST /courses` sets `owner_user_id` to the caller and creates one offering for the current term; update and delete require ownership. Instructors and TAs have accounts but no course-management permissions in the MVP ([ARCHITECTURE.md](ARCHITECTURE.md) §7). A non-owner attempting update or delete receives 404 rather than 403, per §1.
+
+```jsonc
+// POST /api/v1/courses
+{
+  "title": "Physics",                  // any subject; nothing is enumerated server-side
+  "code": "PHY101",                    // optional
+  "department_id": "…",                // optional
+  "primary_language": "ar",
+  "secondary_languages": ["en"],
+  "term": { "id": "…" } | { "label": "Fall 2026" }
+}
+```
 
 **Naming note.** The API says "course" where the database says "offering" ([DATABASE.md](DATABASE.md) §3). Students think in terms of the course they are taking this term; the catalogue/offering split is an internal concern and is not pushed into the client vocabulary.
 
@@ -105,7 +136,7 @@ Only the fields listed in §20 of the brief are collected. Rate-limited per IP a
 | `DELETE` | `/lectures/{id}` | Soft delete |
 | `POST` | `/lectures/{id}/sessions` | Open a capture session → returns `ws_url`, `session_id` |
 | `POST` | `/lectures/{id}/sessions/{sid}/close` | Finalize; enqueues enrichment |
-| `GET` | `/lectures/{id}/transcript` | Segments with anchors; `?language=` for translations |
+| `GET` | `/lectures/{id}/transcript` | Segments with anchors; `?language=` selects display language |
 | `GET` | `/lectures/{id}/transcript/raw` | Raw ASR output — never destroyed (§5 of the brief) |
 | `GET` | `/lectures/{id}/emphasis` | Detected emphasis records |
 | `GET` | `/lectures/{id}/summary` | Current summary |
@@ -169,7 +200,24 @@ Authenticated by session cookie at upgrade; the session must belong to the calle
 { "type": "error",  "code": "asr_unavailable", "message": "…", "recoverable": true }
 ```
 
-Three properties the client depends on:
+#### Transcript language selection
+
+`GET /lectures/{id}/transcript?language=zh` returns Chinese if cached. If not, it **returns the source transcript immediately** and enqueues a per-lecture translation job:
+
+```jsonc
+{
+  "language": { "requested": "zh", "served": "ar", "status": "generating", "job_id": "…" },
+  "segments": [ /* source text */ ]
+}
+```
+
+The client polls the job and re-fetches. Translation is generated on demand for the language the student actually selected — not pre-generated for every supported language ([DATABASE.md](DATABASE.md) §4). `GET /lectures/{id}/transcript/raw` is always the untranslated, uncorrected original.
+
+Supported languages come from configuration (`GET /config/languages`), initially Arabic, English, and Chinese.
+
+#### WebSocket properties the client depends on
+
+Three properties:
 
 - **Drafts are replaced, never appended.** A `segment` supersedes any draft overlapping its time range.
 - **Corrections arrive out of band.** The UI must be able to mutate an already-rendered segment in place — this is what makes term correction visible rather than hidden.
@@ -179,17 +227,49 @@ Three properties the client depends on:
 
 ## 5. Materials
 
-Bytes never pass through the API (§18 of the brief). Upload is a three-step handshake:
+Bytes never pass through the API (§18 of the brief).
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/courses/{offeringId}/materials/upload-url` | → `{ material_id, upload_url, fields, expires_at }` |
-| `PUT` | *(object storage, direct)* | Browser uploads to storage |
-| `POST` | `/materials/{id}/complete` | Verify checksum, enqueue extraction |
+| `POST` | `/uploads` | Open an upload session → `{ upload_session_id, material_id, chunk_size, received_bytes }` |
+| `PUT` | `/uploads/{id}/parts/{n}` | Upload one part; **or** a presigned direct-to-storage URL |
+| `GET` | `/uploads/{id}` | `{ received_bytes, parts, status }` — where to resume from |
+| `POST` | `/uploads/{id}/complete` | Verify checksum, finalize, enqueue processing |
+| `DELETE` | `/uploads/{id}` | Abort |
 | `GET` | `/materials/{id}` | Metadata + `processing_status` + `processing_error` |
 | `GET` | `/courses/{offeringId}/materials` | List, filterable by type and lecture |
 | `GET` | `/materials/{id}/download-url` | Short-lived presigned read URL |
 | `DELETE` | `/materials/{id}` | Soft delete; storage object swept asynchronously |
+
+### Resumable and idempotent, because uploads start offline
+
+A lecture recorded without a network is uploaded later, possibly over a bad connection, possibly more than once ([ARCHITECTURE.md](ARCHITECTURE.md) §3.10).
+
+```jsonc
+// POST /api/v1/uploads
+{
+  "client_ref": "…",            // generated on the device BEFORE recording starts
+  "offering_id": "…",
+  "lecture_id": "…",            // optional
+  "kind": "lecture_recording",
+  "filename": "…", "mime_type": "audio/webm",
+  "total_bytes": 41288192,
+  "checksum_sha256": "…"
+}
+```
+
+**`client_ref` is the idempotency key.** Re-opening a session with the same `client_ref` returns the *existing* session and its `received_bytes` — so an ambiguous network failure resolves to a resume, never a duplicate lecture. The client uploads from `received_bytes` onward; `GET /uploads/{id}` answers "where did I get to?" after an app restart.
+
+Checksum mismatch on completion fails the session rather than ingesting a corrupted recording.
+
+### Offline content
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/courses/{offeringId}/offline-manifest` | Everything needed to use this course offline: transcript, summaries, flashcards, questions, notes, material and recording URLs, with sizes and content hashes |
+| `GET` | `/me/sync-state` | Server-side view of queued and processing uploads |
+
+The manifest returns hashes so the client re-downloads only what changed. Sync states — `queued`, `uploading`, `processing`, `ready`, `failed` — are user-facing: a student must be able to see that last Tuesday's lecture has not uploaded yet.
 
 Progress is polled from `processing_status`; a failed material returns a specific reason ("no text layer; OCR failed"), never a generic error, because the student's next action depends on which stage failed.
 
@@ -409,5 +489,8 @@ Every payload is defined once in `packages/contracts` and validated on both side
 | Search | p95 < 400 ms |
 | Q&A first token | p95 < 3 s |
 | Exam generation | async; minutes are acceptable |
+| Search query embedding | ≤ 120 ms on CPU (int8 ONNX) — inside the search budget |
+| Offline recording | works with **no network**; capture never blocks on a request |
+| Upload resume | resumes from `received_bytes`; retry with the same `client_ref` never duplicates |
 | Rate limits | per user and per endpoint class; generation endpoints limited separately from reads |
 | Audit | every AI call logged with model, tokens, latency, cost estimate; request ID propagated across tiers |
