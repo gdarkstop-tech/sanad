@@ -8,3 +8,10 @@ out/
 .DS_Store
 coverage/
 .turbo/
+
+# Benchmark artifacts: audio is never committed, results are per-machine
+__pycache__/
+*.pyc
+benchmarks/asr/dataset/audio/
+benchmarks/asr/dataset/manifest.json
+benchmarks/asr/results/*/

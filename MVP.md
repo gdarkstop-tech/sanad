@@ -82,7 +82,11 @@ Architecture documents (this set) reviewed and approved. Then the benchmark in [
 
 **This phase gates everything.** Code-switched technical transcription is the load-bearing assumption of the product; if it fails, the approach changes, and that is far cheaper to discover now than in Phase 3.
 
-> **Exit:** an ASR engine and configuration selected against measured thresholds, with the result documented and the decision recorded.
+The recurring ASR budget is **$0**, so candidates are open-source engines on CPU. That makes **real-time factor** a decision gate alongside accuracy: an engine slower than real time cannot drive a live transcript, however accurate it is. The response to each outcome is pre-committed in [ASR_BENCHMARK.md](ASR_BENCHMARK.md) §7 so results cannot be rationalized after the fact.
+
+> **Exit:** an engine and configuration selected against measured thresholds on real audio from two unrelated disciplines, at $0, with the result and the decision recorded in `benchmarks/asr/DECISION.md`.
+
+The harness is implemented and self-tested ([benchmarks/asr/](benchmarks/asr/README.md)); only the audio is outstanding.
 
 ### Phase 1 — Foundation ✅
 
@@ -92,7 +96,19 @@ No AI, no ingestion, no retrieval — those are later phases and depend on this 
 
 > **Exit:** a student registers, signs in, creates a course of any subject, and sees only their own; a non-owner cannot modify it; migrations run clean from an empty database; database and auth tests pass.
 
+### Phase 1b — Authentication hardening
+
+Required before any public deployment, and scheduled ahead of Phase 2 work that would build on the same auth surface:
+
+- Rate limiting on `/auth/register` and `/auth/login`, per IP and per email
+- CSRF tokens on state-changing requests (`SameSite=Lax` alone is not defence in depth)
+- Email verification — `users.email_verified_at` exists and is currently never set
+
+> **Exit:** brute-forcing a password is rate-limited, a cross-site POST is rejected, and an unverified account is visibly distinguishable from a verified one.
+
 ### Phase 2 — Lectures and materials
+
+Planned in detail in [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md).
 
 Academic structure and course ownership land in Phase 1; this phase builds on them. Lectures. Object storage. Material upload, extraction for every listed type, `material_chunks`, the Python ingestion tier, and the job queue with visible status.
 

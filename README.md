@@ -35,13 +35,17 @@ Demo courses are seed fixtures and benchmark datasets. Nothing more.
 
 Read them in that order. `ARCHITECTURE.md` §11 records the decisions taken and what remains open.
 
-## Running it
+## Working documents
 
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup, migrations, and tests.
+| Document | Contents |
+|---|---|
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, migrations, tests |
+| [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md) | Next phase: lectures, storage, upload, extraction |
+| [benchmarks/asr/README.md](benchmarks/asr/README.md) | Benchmark harness — implemented, awaiting audio |
 
 ## Technology
 
-PostgreSQL 16 + pgvector as the single source of truth · TypeScript / Next.js as one responsive PWA for web and mobile · Python for the AI tier (from Phase 2) · S3-compatible object storage for binaries · hosted ASR and LLM, self-hosted open-source embeddings, all provider-abstracted.
+PostgreSQL 16 + pgvector as the single source of truth · TypeScript / Next.js as one responsive PWA for web and mobile · Python for the AI tier (from Phase 2) · S3-compatible object storage for binaries · self-hosted open-source ASR and embeddings at $0, hosted LLM, all provider-abstracted.
 
 Offline-first on the client: recording a lecture never requires a network, and downloaded content is readable without one.
 

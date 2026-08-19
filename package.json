@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "check:course-agnostic": "bash scripts/check-course-agnostic.sh"
+    "check:course-agnostic": "bash scripts/check-course-agnostic.sh",
+    "test:asr": "cd benchmarks/asr && python3 -m unittest discover -p \"test_*.py\""
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

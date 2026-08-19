@@ -1,0 +1,54 @@
+{
+  "_comment": "Copy to manifest.json and fill in from real recordings. Audio files are NOT committed — only this manifest and the reference transcripts. Disciplines are labels; nothing here is subject-specific.",
+  "version": "2026-08-example",
+  "segments": [
+    {
+      "id": "A-01",
+      "discipline": "discipline_one",
+      "audio": "audio/A-01.wav",
+      "duration_ms": 600000,
+      "notes": "Arabic-dominant with English technical terms, normal pace",
+      "reference": [
+        {
+          "start_ms": 0,
+          "end_ms": 7400,
+          "language": "mixed",
+          "text": "الـ widget-latch بيخزن bit واحد",
+          "terms": [
+            { "canonical": "widget-latch", "aliases": ["ودجت لاتش"] },
+            { "canonical": "bit", "aliases": ["بت"] }
+          ]
+        },
+        {
+          "start_ms": 7400,
+          "end_ms": 12100,
+          "language": "ar",
+          "text": "وده معناه ان الدائرة تحتفظ بالقيمة"
+        },
+        {
+          "start_ms": 12100,
+          "end_ms": 15000,
+          "language": "en",
+          "text": "",
+          "silence": true
+        }
+      ]
+    },
+    {
+      "id": "B-01",
+      "discipline": "discipline_two",
+      "audio": "audio/B-01.wav",
+      "duration_ms": 600000,
+      "notes": "Unrelated discipline — required, so a result that does not generalize is detectable",
+      "reference": [
+        {
+          "start_ms": 0,
+          "end_ms": 6200,
+          "language": "mixed",
+          "text": "الـ phase-comparator بيقفل على الإشارة",
+          "terms": [{ "canonical": "phase-comparator", "aliases": ["فيز كومباريتور"] }]
+        }
+      ]
+    }
+  ]
+}

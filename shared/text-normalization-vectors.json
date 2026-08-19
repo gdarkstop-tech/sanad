@@ -1,0 +1,16 @@
+{
+  "_comment": "Shared test vectors for text normalization. The TypeScript implementation (packages/core/src/text.ts) and the Python one (benchmarks/asr/normalization.py) both run these. Index-time and query-time normalization diverging is a silent retrieval failure, and two implementations of it is exactly how that happens — AI_PIPELINE.md §8.",
+  "search": [
+    { "in": "الأَنْظِمَة", "out": "الانظمه", "why": "tashkeel stripped; hamza forms folded to bare alef; ta marbuta to ha" },
+    { "in": "مُحَاضَرَة", "out": "محاضره", "why": "tashkeel stripped; ta marbuta to ha" },
+    { "in": "إسلام", "out": "اسلام", "why": "alef with hamza below folded" },
+    { "in": "آخر", "out": "اخر", "why": "alef madda folded" },
+    { "in": "مصطفى", "out": "مصطفي", "why": "alef maqsura to ya" },
+    { "in": "الـــكتاب", "out": "الكتاب", "why": "tatweel removed" },
+    { "in": "٤٢", "out": "42", "why": "Arabic-Indic digits folded to ASCII" },
+    { "in": "۴۲", "out": "42", "why": "Eastern Arabic-Indic digits folded to ASCII" },
+    { "in": "Lecture  04 —  Notes!", "out": "lecture 04 notes", "why": "lowercased, punctuation stripped, whitespace collapsed" },
+    { "in": "  ", "out": "", "why": "whitespace-only input" },
+    { "in": "الـ flip-flop بيخزن bit واحد", "out": "ال flip flop بيخزن bit واحد", "why": "code-switched text keeps both scripts; tatweel joining the article to a Latin word is stripped, and the hyphen becomes a space" }
+  ]
+}

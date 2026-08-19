@@ -148,11 +148,20 @@ Opaque session tokens in an httpOnly cookie, sessions stored in Postgres, Argon2
 
 Email and password only for the MVP. Federated sign-in (Google, Apple) is not required now but is **structurally anticipated**: credentials live in an `auth_identities` table keyed by `(provider, provider_account_id)` rather than as columns on `users` ([DATABASE.md](DATABASE.md) §3). Adding a provider is then a new row type, not a migration of the user table and a rewrite of the session layer.
 
-### 3.8 ASR: hosted API, provider-abstracted
+### 3.8 ASR: free and open-source, provider-abstracted
 
-No dedicated GPU infrastructure exists for this project, so self-hosting a speech model is not viable for the MVP. ASR is a **hosted API**, selected by the Phase 0 benchmark against Arabic accuracy, English accuracy, code-switching, technical terminology, latency, and timestamp accuracy.
+**Recurring budget: $0. No paid ASR may be a required dependency.** With no GPU hardware either, that makes the candidate set open-source models on commodity CPU — `whisper.cpp` and `faster-whisper` quantized, Vosk, and in-browser WASM. The Phase 0 benchmark selects among them on Arabic accuracy, English accuracy, code-switching, technical terminology, timestamp accuracy, and now **real-time factor**, which the budget promotes from a detail to a decisive metric.
 
-The application is **not committed to that provider**. Everything speech-related goes through `SpeechToTextProvider` (§6); the benchmark harness runs candidates through the same interface; and a later move to a self-hosted model is a configuration change plus an adapter, not a pipeline rewrite.
+**The honest tension:** $0 + no GPU + low-latency live transcription is a hard combination. An accurate Whisper-family model on CPU may not keep ahead of a speaker, and a model that cannot keep up cannot drive a live transcript.
+
+Nothing is redesigned for that possibility yet — the benchmark decides it, and [ASR_BENCHMARK.md](ASR_BENCHMARK.md) §7 pre-commits the response so the result cannot be rationalized afterwards. Two properties make every outcome survivable:
+
+- **Capture and transcription are already decoupled.** The offline path records locally and processes on upload (§3.10), so "transcript ready shortly after the lecture" is a smaller promise, not a broken pipeline.
+- **A two-tier split needs no new architecture.** A fast small model for the live view, an accurate large one for the archive — both free, both behind the same interface.
+
+Going open-source also *gains* something the hosted plan could not guarantee: self-hosted models all expose `initial_prompt`, so vocabulary biasing — the cheapest stage of term correction — is available on every candidate.
+
+A free-tier hosted API may be measured for reference and offered as an optional accelerator a deployment can enable. It may never be required: the product must be complete and demonstrable at $0.
 
 ### 3.9 Embeddings: one locked open-source model, self-hosted on CPU
 
@@ -298,7 +307,7 @@ Selections for the MVP:
 
 | Capability | Choice | Hosting | Locked? |
 |---|---|---|---|
-| Speech-to-text | Decided by [ASR_BENCHMARK.md](ASR_BENCHMARK.md) | Hosted API (§3.8) | No — benchmark selects, adapter swaps |
+| Speech-to-text | Decided by [ASR_BENCHMARK.md](ASR_BENCHMARK.md) | Self-hosted open-source, CPU (§3.8) | No — benchmark selects, adapter swaps |
 | Embeddings | BGE-M3, 1024-d | Self-hosted, CPU + ONNX (§3.9) | **Yes** — index-wide consistency |
 | LLM | Reasoning + fast roles | Hosted API | No |
 | Translation | On-demand, per requested language | Hosted API | No |
@@ -369,6 +378,7 @@ Ranked by probability × impact.
 | # | Risk | Why it matters | Mitigation |
 |---|---|---|---|
 | 1 | **Code-switched technical ASR underperforms** | Load-bearing for the entire product | [ASR_BENCHMARK.md](ASR_BENCHMARK.md) runs in Phase 0, before the pipeline is built. Decision gate with defined thresholds. |
+| 1a | **No free CPU engine keeps up with live speech** | $0 + no GPU may put real-time transcription out of reach | Real-time factor is a benchmark gate (§4.6); the two-tier and batch-first fallbacks are pre-committed, and the offline path already supports both |
 | 2 | **Silent translation instead of transcription** | Whisper-family models sometimes translate at a language switch; quiet and destroys code-switching | Pin task=transcribe; make translation-leak an explicit benchmark metric with a hard ceiling |
 | 3 | **Cross-lingual retrieval misses** | Arabic query must find English content or search fails for the target user | Multilingual embeddings + vocabulary-driven term expansion at index time; Arabic query set in the retrieval eval |
 | 4 | **Citations that look valid but aren't** | Destroys the product's core trust claim | Validation against the retrieved set; anchors resolved from rows, never model output; refusal on zero survivors |
@@ -395,7 +405,7 @@ The open questions from the first review are answered. Recorded here so they are
 
 | # | Question | Decision | Consequence |
 |---|---|---|---|
-| 1 | ASR hosting | **Hosted API**, provider-abstracted | §3.8; no GPU dependency; benchmark selects the provider |
+| 1 | ASR hosting | **Free/open-source, self-hosted on CPU** — $0 recurring, never a paid required dependency | §3.8; benchmark selects the engine; real-time factor becomes a decision gate |
 | 2 | Embedding model | **BGE-M3, 1024-d, locked**, self-hosted on CPU | §3.9; schema unchanged; changing it is a versioned backfill |
 | 3 | Course provisioning | **Student-created and student-owned** | §7; `courses.owner_user_id`; institutional provisioning stays additive |
 | 4 | Translation | **In the MVP UI, generated on demand** | Arabic, English, Chinese initially; source always preserved |
@@ -410,5 +420,6 @@ Two further decisions were taken at the same time:
 
 ### Still open
 
-1. **Hosted ASR provider and price ceiling** — the benchmark ranks accuracy; a monthly budget still has to be set, since hosted ASR is now the project's main recurring cost.
+1. **Whether live transcription survives the $0 constraint** — answered by the benchmark, with the response pre-committed in [ASR_BENCHMARK.md](ASR_BENCHMARK.md) §7. Until then, no architectural change.
 2. **Term boundaries** — retention keys off academic term end dates. Whether those are seeded per university or entered by the student needs a decision before Phase 2 ([DATABASE.md](DATABASE.md) §3).
+3. **The remaining paid dependency is the LLM**, not ASR — roughly $0.20 per lecture for summaries, correction, and generation ([AI_PIPELINE.md](AI_PIPELINE.md) §11). The $0 rule was set for ASR specifically; if it is meant to cover the whole product, that is a larger conversation, because grounded answering and Exam Mode are what the LLM does.

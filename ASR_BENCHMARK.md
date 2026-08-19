@@ -2,7 +2,7 @@
 
 Evaluation protocol for speech recognition, run in **Phase 0 — before the lecture pipeline is built**.
 
-**Status:** decisions finalized — candidates are hosted APIs (§5). Not yet run.
+**Status:** budget set to **$0 recurring**; candidates are free/open-source (§5). Harness implemented and self-tested; awaiting audio.
 
 ---
 
@@ -142,20 +142,35 @@ An engine whose confidence is uncorrelated with accuracy cannot support the low-
 
 ## 5. Systems under test
 
-The MVP uses a **hosted API** — there is no GPU infrastructure ([ARCHITECTURE.md](ARCHITECTURE.md) §3.8) — so the candidate set is hosted services, evaluated on the priorities the decision named: Arabic accuracy, English accuracy, code-switching, technical terminology, latency, and timestamp accuracy.
+**Budget: $0 recurring. No paid ASR may be a required dependency.** Combined with the absence of GPU hardware, that makes the candidate set open-source models running on commodity CPU.
 
-| Candidate | Mode | Notes |
-|---|---|---|
-| Hosted multilingual ASR, provider A | streaming + batch | |
-| Hosted multilingual ASR, provider B | streaming + batch | At least two, or the benchmark cannot rank |
-| Hosted multilingual ASR, provider C | as offered | Include any provider with explicit Arabic support |
-| Best hosted candidate + vocabulary biasing | streaming + batch | Only where the provider exposes a bias/hint parameter |
-| Best hosted candidate + LLM correction pass | batch | Isolates [AI_PIPELINE.md](AI_PIPELINE.md) §4 stage 3 |
-| Self-hosted Whisper-family (reference only) | batch | Not a deployment candidate; establishes what is being given up, and what a later GPU move would buy |
+### The constraint this creates, stated plainly
 
-**Vocabulary biasing may not be available on every hosted provider.** Where it is not, stage 1 of term correction is unavailable and stages 2–3 carry the whole load — a real selection criterion, not a footnote, since biasing is the cheapest of the three stages.
+$0 + no GPU + **low-latency live transcription** is the hard combination. On CPU, the accurate Whisper-family models are unlikely to run faster than real time, and a model that cannot keep up with a speaker cannot drive a live transcript.
 
-All candidates run **through the provider interface** ([AI_PIPELINE.md](AI_PIPELINE.md) §1), not through a side harness. Two reasons: the benchmark then measures the real code path including normalization and segmentation, and any candidate can be adopted by changing configuration.
+This is not a reason to change the architecture now, and §7 is written so the benchmark decides it rather than an assumption. Two things make it survivable:
+
+1. **The offline capture path already exists.** Sanad was designed so a lecture recorded without a network is uploaded later and processed in batch, arriving in the archive identical to a live one ([AI_PIPELINE.md](AI_PIPELINE.md) §2). If real-time proves impossible at $0, the product degrades to *record now, transcript ready shortly after* — a smaller claim, not a broken one.
+2. **Two-pass is a real design, not a consolation.** A small fast model drives the live view; a larger accurate one produces the archived transcript afterwards. Both can be free.
+
+What the benchmark must therefore measure, and did not need to before, is **real-time factor on target hardware** (§4.6).
+
+### Candidates
+
+| Candidate | Mode | Cost | Notes |
+|---|---|---|---|
+| `whisper.cpp`, quantized ggml (`tiny`, `base`, `small`) | batch + near-live | $0 | Fastest CPU path; the realistic live candidates |
+| `whisper.cpp`, quantized (`medium`, `large-v3-turbo`) | batch | $0 | Accuracy ceiling for CPU batch |
+| `faster-whisper` / CTranslate2, int8 (`small`, `medium`, `large-v3-turbo`) | batch | $0 | Usually the best CPU accuracy-per-second |
+| Vosk, Arabic + English models | streaming | $0 | Built for low-resource streaming; weaker on technical terms — include it precisely to find out how much weaker |
+| In-browser WASM (Transformers.js, `whisper-base`/`small`) | client-side | $0 | Zero server cost entirely; bounded by the student's device |
+| Best free candidate + vocabulary biasing (`initial_prompt`) | as above | $0 | Isolates stage 1 of term correction ([AI_PIPELINE.md](AI_PIPELINE.md) §4) |
+| Best free candidate + LLM correction pass | batch | LLM tokens only | Isolates stage 3 |
+| Free-tier hosted API | reference only | $0 within tier | **Never a required dependency.** Measured to know what is being given up; adoptable only as an optional accelerator a deployment may enable |
+
+Self-hosted models expose `initial_prompt`, so **vocabulary biasing is available on every real candidate** — which was uncertain under the hosted plan and is now a genuine advantage of going open-source.
+
+All candidates run **through the provider interface** ([AI_PIPELINE.md](AI_PIPELINE.md) §1), not through a side harness. The benchmark then measures the real code path including normalization and segmentation, and any candidate can be adopted by changing configuration.
 
 Every run pins `task=transcribe` explicitly (§4.3).
 
@@ -189,21 +204,32 @@ Proposed for review, to be confirmed before the run so results cannot be rationa
 | **Translation leak rate** | **≤ 0.01** | 0 |
 | Silence hallucination | ≤ 0.02 | 0 |
 | Timestamp alignment (±500 ms) | 0.90 | 0.97 |
-| Draft latency p95 | ≤ 3 s | ≤ 2 s |
-| Finalization latency p95 | ≤ 8 s | ≤ 5 s |
-| Cost per audio hour | within the monthly budget at expected volume | — |
+| **Recurring cost per audio hour** | **$0** | $0 |
+| Real-time factor, live candidate (CPU) | ≤ 0.7× | ≤ 0.4× |
+| Real-time factor, batch candidate (CPU) | ≤ 3× | ≤ 1× |
+| Peak memory | ≤ 4 GB | ≤ 2 GB |
+| Draft latency p95 *(live tier only)* | ≤ 3 s | ≤ 2 s |
+| Finalization latency p95 *(live tier only)* | ≤ 8 s | ≤ 5 s |
 
-Cost is a selection criterion, not a tiebreaker: hosted ASR is the project's main recurring expense, and a provider that wins on accuracy but cannot be afforded at expected lecture volume is not a candidate. Set the monthly budget before the run.
+**Cost is now a gate, not a criterion.** A candidate with a recurring per-hour price is disqualified as a *required* dependency regardless of accuracy. It may still be measured, and may be offered as an optional accelerator, but the product must be complete and demonstrable without it.
+
+**Real-time factor is the new decisive metric.** RTF ≤ 0.7× means the engine keeps ahead of a speaker with headroom for the correction pass; above 1× it cannot drive a live transcript at all, however accurate it is. Batch tolerates up to 3× — a 50-minute lecture processed in under two and a half hours is acceptable for work that happens after the lecture ends.
+
+Measure RTF on a defined commodity machine (record core count and model), single stream, no GPU. Record the machine in the report: an RTF without its hardware is not a number.
 
 ### Outcomes
 
-**All minimums met** → proceed to Phase 1 with the selected engine.
+**A candidate meets the accuracy minimums and the live RTF** → single-tier design. Live and batch use the same engine.
+
+**Accuracy minimums met, but no candidate reaches live RTF** → **two-tier design**: the fastest acceptable model drives the live view, the most accurate one produces the archived transcript on upload. Expected outcome, and already compatible with the pipeline as designed.
+
+**Accuracy minimums met only in batch** → live transcription is dropped from the MVP claim and the product leads with capture-then-process. The offline path makes this a change of promise, not of architecture. Say it plainly rather than demoing a live transcript that only works on rehearsed audio.
 
 **Term F1 below minimum but close** → the correction pipeline carries more weight. Proceed with stage 3 ([AI_PIPELINE.md](AI_PIPELINE.md) §4) treated as required rather than optional, and re-benchmark after Phase 4.
 
 **Translation leak or hallucination above ceiling** → reject the candidate outright. These cannot be corrected downstream; they produce fluent text that is wrong about what was said, which is precisely the failure mode Sanad exists to avoid.
 
-**No candidate meets the minimums** → stop and escalate before writing pipeline code. Options in order of preference: a two-pass design where a fast engine drives the live view and a more accurate one produces the archived transcript (which the offline path already makes natural — see [AI_PIPELINE.md](AI_PIPELINE.md) §2); a stronger but more expensive provider, with the budget revisited; or narrowing the live-transcription claim and leading the product with upload-based ingestion. All three are recoverable in Phase 0 and expensive in Phase 8.
+**No candidate meets the accuracy minimums** → stop and escalate before writing pipeline code. Options, in order: in-browser WASM transcription, which moves compute to the student's device and stays at $0; raising the LLM correction pass from optional to required, accepting its token cost and measuring the corrected output rather than the raw; or revisiting the $0 constraint with evidence of exactly what it costs in accuracy. All are recoverable in Phase 0 and expensive in Phase 8.
 
 ---
 
@@ -237,6 +263,7 @@ The report must state what was measured, on what audio, with which configuration
 1. **Subject-independent.** Metrics, harness, and annotation guide contain no subject-specific logic. Adding a third discipline is adding data.
 2. **No hard-coding.** The term list per discipline is data under `benchmarks/asr/dataset/`, loaded at run time, and covered by the CI course-agnostic check.
 3. **Real audio only.** Synthetic or studio-clean recordings flatter every engine and hide exactly the failures that matter in a lecture hall.
+3a. **No paid dependency in the chosen path.** A free-tier service may be measured, but the selected configuration must run at $0 indefinitely, with no trial window and no per-hour rate.
 4. **Thresholds fixed in advance**, so a result cannot be reinterpreted to fit a preferred conclusion.
 5. **Both sides measured.** Biasing and correction are evaluated by their delta against the same baseline, so their real contribution is known rather than assumed.
 6. **Consent and retention.** Speaker permission is recorded before use, and benchmark audio follows the same retention policy as student recordings ([ARCHITECTURE.md](ARCHITECTURE.md) §11.5). This needs an answer before collection begins.

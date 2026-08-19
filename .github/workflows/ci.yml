@@ -55,5 +55,11 @@ jobs:
       - name: Tests
         run: pnpm test
 
+      # The benchmark harness decides a load-bearing product question, so its
+      # metrics are tested like product code.
+      - name: ASR benchmark harness tests
+        working-directory: benchmarks/asr
+        run: python3 -m unittest discover -p "test_*.py" -v
+
       - name: Build
         run: pnpm build

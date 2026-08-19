@@ -26,7 +26,9 @@ type ProviderConfig = {
 
 Resolution order: **per-course override → environment config → default**. The per-course override exists so the ASR benchmark ([ASR_BENCHMARK.md](ASR_BENCHMARK.md)) can run competing engines through the production code path rather than a parallel harness that drifts from reality.
 
-Two of the five are settled ([ARCHITECTURE.md](ARCHITECTURE.md) §3.8–3.9): **speech-to-text is a hosted API** because there is no GPU infrastructure, and **embeddings are BGE-M3 at 1024 dimensions, locked and self-hosted on CPU** because a free model is competitive here and index consistency demands one model. Both stay behind their interfaces; "locked" constrains deployment, not design.
+Two of the five are settled ([ARCHITECTURE.md](ARCHITECTURE.md) §3.8–3.9), both **free and self-hosted on CPU**: speech-to-text is an open-source engine chosen by the Phase 0 benchmark, and embeddings are BGE-M3 at 1024 dimensions, locked. Both stay behind their interfaces; "locked" constrains deployment, not design.
+
+The recurring ASR budget is **$0**, and no paid ASR may be a required dependency. The practical consequence for this pipeline is that **real-time factor now constrains the design**: §2 assumes an engine that keeps ahead of a speaker, and whether any free CPU engine does is exactly what the benchmark measures. The two-tier fallback — fast model live, accurate model on upload — needs no change to anything below.
 
 ---
 
@@ -326,13 +328,15 @@ Initial selection (Claude API; all are replaceable via §1):
 
 | Capability | Choice | Hosting | Cost |
 |---|---|---|---|
-| Embeddings | **BGE-M3, 1024-d — locked** | Self-hosted, CPU (ONNX int8 for queries) | **Free** |
-| ASR | Decided by [ASR_BENCHMARK.md](ASR_BENCHMARK.md) | Hosted API | Per audio-hour — the main recurring cost |
+| Embeddings | **BGE-M3, 1024-d — locked** | Self-hosted, CPU (ONNX int8 for queries) | **$0** |
+| ASR | Decided by [ASR_BENCHMARK.md](ASR_BENCHMARK.md) | Self-hosted open-source, CPU | **$0 — required to be** |
 | LLM — reasoning | `claude-opus-5` (1M context, $5/$25 per MTok) | Hosted | Per token |
 | LLM — fast | `claude-haiku-4-5` (200K, $1/$5 per MTok) | Hosted | Per token |
 | Translation | Reasoning model initially | Hosted | On demand only |
 
-Embeddings are the one capability where a free model is genuinely competitive with a paid API, which is why that is where the free option is taken. ASR is the opposite: accuracy on code-switched technical speech is the product's foundation, and there is no free self-hosted path without a GPU.
+Both self-hosted capabilities are free, and both trade money for CPU time — an explicit choice for a project with no infrastructure budget.
+
+**The LLM remains the one paid dependency**, and it is load-bearing: grounded answering, summarization, term correction, emphasis verification, and Exam Mode all run on it. There is no free substitute that preserves the citation guarantees. If the $0 rule is meant to extend beyond ASR, that changes the product rather than the vendor, and should be decided deliberately — see [ARCHITECTURE.md](ARCHITECTURE.md) §11.
 
 ### Cost estimate, per lecture
 
@@ -348,7 +352,7 @@ A 50-minute lecture is roughly 12–20K tokens (Arabic tokenizes more heavily th
 | Full course exam pack (batched) | ~$1.50 |
 | Grounded answer (cached course context) | a few cents |
 | Embeddings | $0 — self-hosted |
-| Transcription | hosted ASR rate × audio hours — **budget this separately** |
+| Transcription | **$0** — self-hosted; the cost is CPU time, not money |
 
 Translation is excluded from the per-lecture figure because it is generated only for languages a student actually opens.
 
