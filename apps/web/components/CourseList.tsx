@@ -99,7 +99,9 @@ export function CourseList({ courses }: { courses: CourseSummary[] }) {
         <div className="grid">
           {courses.map((course) => (
             <article key={course.id} className="card">
-              <h2 style={{ marginBlockEnd: '0.25rem' }}>{course.title}</h2>
+              <h2 style={{ marginBlockEnd: '0.25rem' }}>
+                <a href={`/courses/${course.id}`}>{course.title}</a>
+              </h2>
               <p className="muted">
                 {course.code ? `${course.code} · ` : ''}
                 {course.primaryLanguage}

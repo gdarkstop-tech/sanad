@@ -183,12 +183,15 @@ export class FixtureAsrProvider implements AsrProvider {
     }
     if (templates.length === 0) templates.push('Continuing with the material');
 
-    const count = 6 + (seed[0]! % 5);
+    // Cycle rather than sample: a fixture that sometimes omits the Arabic or
+    // code-switched cases is a fixture that sometimes fails to exercise the
+    // hard path. Every template appears, in a stable order.
+    const count = Math.max(templates.length, 6 + (seed[0]! % 5));
     const segments: RawSegment[] = [];
     let cursor = 0;
 
     for (let i = 0; i < count; i += 1) {
-      const template = templates[seed[i % seed.length]! % templates.length]!;
+      const template = templates[i % templates.length]!;
       const durationMs = 3000 + (seed[(i + 3) % seed.length]! % 4000);
       // Confidence spread includes low values so the uncertainty path is exercised.
       const confidence = 0.55 + (seed[(i + 7) % seed.length]! % 45) / 100;

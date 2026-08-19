@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check:course-agnostic": "bash scripts/check-course-agnostic.sh",
-    "test:asr": "cd benchmarks/asr && python3 -m unittest discover -p \"test_*.py\""
+    "test:asr": "cd benchmarks/asr && python3 -m unittest discover -p \"test_*.py\"",
+    "db:seed": "tsx scripts/seed.ts"
   },
   "devDependencies": {
     "@node-rs/argon2": "^2.0.2",
