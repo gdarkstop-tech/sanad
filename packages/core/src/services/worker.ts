@@ -3,6 +3,7 @@ import { materialChunks, materials, type Database } from '@sanad/db';
 import { ExtractionError, chunkUnits, extractorFor } from '../ingestion/extract';
 import { storage } from '../storage';
 import { claim, enqueue, fail, succeed, type JobRecord } from './jobs';
+import { chunkMaterialIntoContent, embedPendingChunks, transcribeLecture } from './pipeline';
 
 /**
  * In-process job worker.
@@ -77,6 +78,9 @@ export async function extractMaterial(db: Database, job: JobRecord): Promise<voi
       .where(eq(materials.id, material.id));
   });
 
+  // Promote extracted document chunks into the unified retrieval table, then
+  // queue embedding for them.
+  await chunkMaterialIntoContent(db, material.id);
   await enqueue(db, {
     jobType: 'embed_chunks',
     targetType: 'material',
@@ -84,8 +88,17 @@ export async function extractMaterial(db: Database, job: JobRecord): Promise<voi
   });
 }
 
+async function embedChunksJob(db: Database, job: JobRecord): Promise<void> {
+  await embedPendingChunks(
+    db,
+    job.targetType === 'lecture' ? { lectureId: job.targetId } : { materialId: job.targetId },
+  );
+}
+
 const HANDLERS: Partial<Record<string, JobHandler>> = {
   extract_material: extractMaterial,
+  transcribe_lecture: transcribeLecture,
+  embed_chunks: embedChunksJob,
 };
 
 export function registerHandler(jobType: string, handler: JobHandler): void {

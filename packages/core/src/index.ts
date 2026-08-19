@@ -20,3 +20,8 @@ export * as jobs from './services/jobs';
 export { enqueue, jobsFor, pendingCount } from './services/jobs';
 export * from './services/worker';
 export * from './ingestion/extract';
+export * from './asr';
+export * from './embeddings';
+export * from './services/pipeline';
+export * from './services/retrieval';
+export * from './services/ask';
