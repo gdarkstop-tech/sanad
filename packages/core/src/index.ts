@@ -8,3 +8,7 @@ export * from './text';
 export * from './services/auth';
 export * from './services/courses';
 export * from './services/reference';
+export * as rateLimit from './rate-limit';
+export { RATE_LIMITS, ipKey, identifierKey } from './rate-limit';
+export * from './csrf';
+export * from './services/verification';

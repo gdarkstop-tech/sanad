@@ -107,3 +107,13 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateMeInput = z.infer<typeof updateMeSchema>;
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
+
+/**
+ * CSRF token transport names.
+ *
+ * These live in contracts, not core, because the browser and the edge
+ * middleware both need them and neither may import server-only code — core
+ * pulls in Argon2, which has no browser build.
+ */
+export const CSRF_COOKIE_NAME = 'sanad_csrf';
+export const CSRF_HEADER_NAME = 'x-csrf-token';

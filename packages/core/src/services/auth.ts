@@ -28,6 +28,7 @@ export interface AuthenticatedUser {
   fullName: string;
   interfaceLocale: string;
   timezone: string;
+  emailVerified: boolean;
 }
 
 export interface IssuedSession {
@@ -43,6 +44,7 @@ function toAuthenticatedUser(row: typeof users.$inferSelect): AuthenticatedUser 
     fullName: row.fullName,
     interfaceLocale: row.interfaceLocale,
     timezone: row.timezone,
+    emailVerified: row.emailVerifiedAt !== null,
   };
 }
 

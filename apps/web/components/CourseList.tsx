@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { api, messageFor } from '@/lib/client';
 
 export interface CourseSummary {
   id: string;
@@ -26,33 +27,37 @@ export function CourseList({ courses }: { courses: CourseSummary[] }) {
     const title = String(form.get('title') ?? '').trim();
     if (!title) return;
 
+    const formElement = event.currentTarget;
     setBusy(true);
     setError(null);
-    const response = await fetch('/api/v1/courses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        title,
-        code: String(form.get('code') ?? '').trim() || undefined,
-        primaryLanguage: String(form.get('primaryLanguage') ?? 'ar'),
-      }),
-    });
-    setBusy(false);
-
-    if (!response.ok) {
-      const problem = await response.json().catch(() => null);
-      setError(problem?.detail ?? problem?.title ?? 'Could not create the course.');
-      return;
+    try {
+      await api('/api/v1/courses', {
+        method: 'POST',
+        json: {
+          title,
+          code: String(form.get('code') ?? '').trim() || undefined,
+          primaryLanguage: String(form.get('primaryLanguage') ?? 'ar'),
+        },
+      });
+      formElement.reset();
+      router.refresh();
+    } catch (caught) {
+      setError(messageFor(caught));
+    } finally {
+      setBusy(false);
     }
-    event.currentTarget.reset();
-    router.refresh();
   }
 
   async function remove(id: string) {
     setBusy(true);
-    await fetch(`/api/v1/courses/${id}`, { method: 'DELETE' });
-    setBusy(false);
-    router.refresh();
+    try {
+      await api(`/api/v1/courses/${id}`, { method: 'DELETE' });
+      router.refresh();
+    } catch (caught) {
+      setError(messageFor(caught));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

@@ -8,6 +8,13 @@
       "when": 1787161657198,
       "tag": "0000_phase1_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787177311160,
+      "tag": "0001_phase1b_security",
+      "breakpoints": true
     }
   ]
 }

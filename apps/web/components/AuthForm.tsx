@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { api, messageFor } from '@/lib/client';
 
 interface Props {
   endpoint: string;
@@ -25,22 +26,14 @@ export function AuthForm({ endpoint, submitLabel, buildBody, children }: Props) 
     setBusy(true);
     setError(null);
 
-    const body = buildBody(new FormData(event.currentTarget));
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (response.ok) {
+    try {
+      await api(endpoint, { method: 'POST', json: buildBody(new FormData(event.currentTarget)) });
       router.push('/dashboard');
       router.refresh();
-      return;
+    } catch (caught) {
+      setError(messageFor(caught));
+      setBusy(false);
     }
-
-    const problem = await response.json().catch(() => null);
-    setError(problem?.detail ?? problem?.title ?? 'Something went wrong.');
-    setBusy(false);
   }
 
   return (
