@@ -4,6 +4,7 @@ import { listLectures, listMaterials, readCourse } from '@sanad/core';
 import { db } from '@sanad/db';
 import { AskPanel } from '@/components/AskPanel';
 import { CourseWorkspace } from '@/components/CourseWorkspace';
+import { ExamMode } from '@/components/ExamMode';
 import { SearchPanel } from '@/components/SearchPanel';
 import { currentUser, subjectOf } from '@/lib/auth';
 
@@ -40,6 +41,7 @@ export default async function CoursePage({
       <div className="stack-lg">
         <SearchPanel courseId={courseId} />
         <AskPanel courseId={courseId} courseTitle={course.title} />
+        <ExamMode courseId={courseId} />
         <CourseWorkspace
           courseId={courseId}
           lectures={lectures.map((l) => ({

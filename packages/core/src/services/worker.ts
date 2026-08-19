@@ -1,9 +1,10 @@
 import { eq } from 'drizzle-orm';
-import { materialChunks, materials, type Database } from '@sanad/db';
+import { lectures, materialChunks, materials, type Database } from '@sanad/db';
 import { ExtractionError, chunkUnits, extractorFor } from '../ingestion/extract';
 import { storage } from '../storage';
 import { claim, enqueue, fail, succeed, type JobRecord } from './jobs';
 import { chunkMaterialIntoContent, embedPendingChunks, transcribeLecture } from './pipeline';
+import { enrichScope } from './study-content';
 
 /**
  * In-process job worker.
@@ -95,10 +96,21 @@ async function embedChunksJob(db: Database, job: JobRecord): Promise<void> {
   );
 }
 
+async function enrichLectureJob(db: Database, job: JobRecord): Promise<void> {
+  const [lecture] = await db
+    .select({ offeringId: lectures.offeringId })
+    .from(lectures)
+    .where(eq(lectures.id, job.targetId))
+    .limit(1);
+  if (!lecture) return;
+  await enrichScope(db, { offeringId: lecture.offeringId, lectureId: job.targetId });
+}
+
 const HANDLERS: Partial<Record<string, JobHandler>> = {
   extract_material: extractMaterial,
   transcribe_lecture: transcribeLecture,
   embed_chunks: embedChunksJob,
+  enrich_lecture: enrichLectureJob,
 };
 
 export function registerHandler(jobType: string, handler: JobHandler): void {

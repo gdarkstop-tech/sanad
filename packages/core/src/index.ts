@@ -25,3 +25,6 @@ export * from './embeddings';
 export * from './services/pipeline';
 export * from './services/retrieval';
 export * from './services/ask';
+export * from './services/study-content';
+export * from './services/exam';
+export * from './services/mastery';
