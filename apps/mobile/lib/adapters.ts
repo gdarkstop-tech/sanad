@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
-import type { FileAdapter, NetworkAdapter, QueueStorage } from '@sanad/offline';
+import { Sha256, base64ToBytes, type FileAdapter, type NetworkAdapter, type QueueStorage } from '@sanad/offline';
 
 /**
  * Native adapters for the offline queue.
@@ -19,12 +18,7 @@ export const storageAdapter: QueueStorage = {
   keys: async () => [...(await AsyncStorage.getAllKeys())],
 };
 
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = globalThis.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
+const READ_WINDOW_BYTES = 1024 * 1024;
 
 export const fileAdapter: FileAdapter = {
   async exists(uri) {
@@ -45,22 +39,21 @@ export const fileAdapter: FileAdapter = {
     return base64ToBytes(base64);
   },
   async sha256(uri) {
-    // Streamed in windows for the same reason.
+    // The server compares this against SHA-256 of the bytes it received, so it
+    // has to be exactly that — streamed a window at a time, because an
+    // hour-long recording cannot be held in memory on a phone. expo-crypto
+    // hashes whole strings only, which is why the digest is incremental here.
     const size = await this.size(uri);
-    const window = 1024 * 1024;
-    let accumulated = '';
-    for (let offset = 0; offset < size; offset += window) {
-      const part = await FileSystem.readAsStringAsync(uri, {
+    const digest = new Sha256();
+    for (let offset = 0; offset < size; offset += READ_WINDOW_BYTES) {
+      const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
         position: offset,
-        length: Math.min(window, size - offset),
+        length: Math.min(READ_WINDOW_BYTES, size - offset),
       });
-      accumulated = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        accumulated + part,
-      );
+      digest.update(base64ToBytes(base64));
     }
-    return accumulated || (await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, ''));
+    return digest.digest();
   },
   async remove(uri) {
     await FileSystem.deleteAsync(uri, { idempotent: true });

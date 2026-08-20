@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, messageFor } from '@/lib/client';
@@ -36,6 +36,29 @@ export function CourseWorkspace({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Transcription and extraction finish after the upload response returns, so
+  // without this the student watches a "processing" pill that never changes and
+  // has to work out for themselves that a reload is what they need. Polling
+  // stops as soon as everything settles, and gives up rather than running
+  // forever if a job is genuinely stuck.
+  const settling =
+    materials.some((m) => m.processingStatus !== 'ready' && m.processingStatus !== 'failed') ||
+    lectures.some((l) => l.status === 'processing' || l.status === 'recording');
+  const [checks, setChecks] = useState(0);
+
+  useEffect(() => {
+    if (!settling || checks >= 20) return;
+    const timer = setTimeout(() => {
+      setChecks((count) => count + 1);
+      router.refresh();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [settling, checks, router]);
+
+  useEffect(() => {
+    if (!settling) setChecks(0);
+  }, [settling]);
 
   async function addLecture(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,9 +107,17 @@ export function CourseWorkspace({
             <label htmlFor="lecture-title">Lecture title</label>
             <input id="lecture-title" name="title" required maxLength={200} />
           </div>
-          <button type="submit" disabled={busy}>Create lecture</button>
+          <button type="submit" disabled={busy}>{busy ? 'Creating…' : 'Create lecture'}</button>
         </form>
       </section>
+
+      {settling ? (
+        <p className="muted" role="status">
+          {checks >= 20
+            ? 'Something is still processing. Reload to check again.'
+            : 'Processing in the background — this page updates itself.'}
+        </p>
+      ) : null}
 
       <h2>Lecture archive</h2>
       {lectures.length === 0 ? (

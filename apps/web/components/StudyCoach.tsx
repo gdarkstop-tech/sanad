@@ -42,13 +42,17 @@ function when(iso: string): string {
  */
 export function StudyCoach() {
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api<{ plan: Plan | null }>('/api/v1/me/study-plan')
       .then((data) => setPlan(data.plan))
-      .catch(() => undefined);
+      // A failure here is not the same as "no plan yet", and saying so is the
+      // difference between the student retrying and assuming it is empty.
+      .catch((caught: unknown) => setError(messageFor(caught)))
+      .finally(() => setLoading(false));
   }, []);
 
   async function build() {
@@ -71,9 +75,16 @@ export function StudyCoach() {
   }
 
   async function complete(id: string) {
-    await api(`/api/v1/study-sessions/${id}/complete`, { method: 'POST' }).catch(() => undefined);
-    const data = await api<{ plan: Plan | null }>('/api/v1/me/study-plan');
-    setPlan(data.plan);
+    setError(null);
+    try {
+      await api(`/api/v1/study-sessions/${id}/complete`, { method: 'POST' });
+      const data = await api<{ plan: Plan | null }>('/api/v1/me/study-plan');
+      setPlan(data.plan);
+    } catch (caught) {
+      // Marking a session done and having nothing happen is worse than an
+      // error message, because the student cannot tell it did not work.
+      setError(messageFor(caught));
+    }
   }
 
   return (
@@ -88,6 +99,12 @@ export function StudyCoach() {
       </button>
 
       {error ? <p className="error" role="alert">{error}</p> : null}
+      {loading ? <p className="muted" role="status">Loading your plan…</p> : null}
+      {!loading && !plan && !error ? (
+        <p className="muted">
+          No plan yet. Add an exam date to a course, then plan your week.
+        </p>
+      ) : null}
 
       {plan ? (
         <div style={{ marginBlockStart: '1.25rem' }}>
@@ -110,6 +127,11 @@ export function StudyCoach() {
                 </li>
               ))}
             </ul>
+          ) : null}
+          {plan.sessions.length > 8 ? (
+            <p className="muted" style={{ marginBlockEnd: 0 }}>
+              Showing the next 8 of {plan.sessions.length} planned sessions.
+            </p>
           ) : null}
         </div>
       ) : null}

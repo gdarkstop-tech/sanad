@@ -1,4 +1,5 @@
 export * from './types';
+export * from './sha256';
 export * from './queue';
 export * from './cache';
 

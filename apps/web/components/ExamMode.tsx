@@ -63,6 +63,14 @@ export function ExamMode({ courseId }: { courseId: string }) {
 
       {error ? <p className="error" role="alert">{error}</p> : null}
 
+      {pack && pack.questions.length === 0 && pack.flashcards.length === 0 && !pack.summary ? (
+        <p className="muted" style={{ marginBlockStart: '1rem' }}>
+          There is nothing to build a pack from yet. Upload a document or a lecture
+          recording for this course first — everything here is generated from the
+          course’s own content, so it cannot be produced from nothing.
+        </p>
+      ) : null}
+
       {pack ? (
         <div className="stack-lg" style={{ marginBlockStart: '1.5rem' }}>
           {pack.emphasis.length > 0 ? (
@@ -136,9 +144,15 @@ export function ExamMode({ courseId }: { courseId: string }) {
                   </li>
                 ))}
               </ul>
+              {pack.flashcards.length > 6 ? (
+                <p className="muted" style={{ marginBlockEnd: 0 }}>
+                  Showing 6 of {pack.flashcards.length}.
+                </p>
+              ) : null}
             </div>
           ) : null}
 
+          {pack.questions.length > 0 ? (
           <div>
             <h3>Practice exam</h3>
             <ol className="plain" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -178,6 +192,7 @@ export function ExamMode({ courseId }: { courseId: string }) {
               ))}
             </ol>
           </div>
+          ) : null}
         </div>
       ) : null}
     </section>

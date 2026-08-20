@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { ContentCache, UploadQueue, backoffMs } from '@sanad/offline';
+import { ContentCache, Sha256, UploadQueue, backoffMs, base64ToBytes, sha256Hex } from '@sanad/offline';
 import {
   FakeUploadServer,
   MemoryFiles,
@@ -342,5 +343,65 @@ describe('offline content cache', () => {
     const cache = new ContentCache(storage, http, new MemoryNetwork(false));
     expect(await cache.read('course-x')).toBeNull();
     expect(await cache.list()).toHaveLength(0);
+  });
+});
+
+describe('checksums computed on the device', () => {
+  /**
+   * The server rejects a completed upload whose bytes do not hash to the
+   * checksum the device declared, so a wrong digest here does not degrade the
+   * upload — it fails every one of them.
+   */
+  const reference = (bytes: Uint8Array): string =>
+    createHash('sha256').update(Buffer.from(bytes)).digest('hex');
+
+  it('matches node:crypto for an empty input', () => {
+    expect(sha256Hex(new Uint8Array(0))).toBe(reference(new Uint8Array(0)));
+  });
+
+  it('matches node:crypto across the block-size boundaries', () => {
+    // 55/56/57 and 63/64/65 are where the padding rules change.
+    for (const size of [1, 55, 56, 57, 63, 64, 65, 127, 128, 1000]) {
+      const bytes = new Uint8Array(size).map((_, i) => (i * 7 + 3) % 256);
+      expect(sha256Hex(bytes)).toBe(reference(bytes));
+    }
+  });
+
+  it('matches node:crypto when fed in windows, as a long recording is', () => {
+    const bytes = new Uint8Array(3_000_000).map((_, i) => i % 251);
+    const digest = new Sha256();
+    const window = 1024 * 1024;
+    for (let offset = 0; offset < bytes.length; offset += window) {
+      digest.update(bytes.subarray(offset, Math.min(offset + window, bytes.length)));
+    }
+    expect(digest.digest()).toBe(reference(bytes));
+  });
+
+  it('is independent of how the bytes are chopped up', () => {
+    const bytes = new Uint8Array(5_000).map((_, i) => (i * 31) % 256);
+    const uneven = new Sha256();
+    let offset = 0;
+    for (const size of [1, 63, 64, 65, 2, 700, 1, 999]) {
+      uneven.update(bytes.subarray(offset, Math.min(offset + size, bytes.length)));
+      offset += size;
+    }
+    uneven.update(bytes.subarray(offset));
+    expect(uneven.digest()).toBe(reference(bytes));
+  });
+
+  it('decodes base64 the way the device reads a file window', () => {
+    const bytes = new Uint8Array(1_234).map((_, i) => (i * 13) % 256);
+    for (const length of [0, 1, 2, 3, 4, 5, 1_234]) {
+      const slice = bytes.subarray(0, length);
+      const base64 = Buffer.from(slice).toString('base64');
+      expect(base64ToBytes(base64)).toEqual(slice);
+    }
+  });
+
+  it('refuses to keep hashing after the digest is taken', () => {
+    const digest = new Sha256();
+    digest.update(new Uint8Array([1, 2, 3]));
+    digest.digest();
+    expect(() => digest.update(new Uint8Array([4]))).toThrow(/finalized/i);
   });
 });
