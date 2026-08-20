@@ -3,7 +3,7 @@ import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 import { apiGet } from '@/lib/api';
 import { contentCache } from '@/lib/queue';
-import { Empty, ErrorNote, Loading, Pill, s, theme } from '@/components/ui';
+import { Empty, ErrorNote, Loading, Pill, TranscriptSourceNote, s, theme } from '@/components/ui';
 
 interface Segment {
   id: string;
@@ -28,16 +28,20 @@ function stamp(ms: number): string {
 export default function Lecture() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [title, setTitle] = useState('Lecture');
+  const [source, setSource] = useState<{ isSynthetic: boolean } | null>(null);
   const [segments, setSegments] = useState<Segment[] | null>(null);
   const [emphasis, setEmphasis] = useState<Emphasis[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    apiGet<{ lecture: { title: string }; segments: Segment[]; emphasis: Emphasis[] }>(
-      `/api/v1/lectures/${id}/transcript`,
-    )
+    apiGet<{
+      lecture: { title: string; transcription: { isSynthetic: boolean } | null };
+      segments: Segment[];
+      emphasis: Emphasis[];
+    }>(`/api/v1/lectures/${id}/transcript`)
       .then((data) => {
         setTitle(data.lecture.title);
+        setSource(data.lecture.transcription);
         setSegments(data.segments);
         setEmphasis(data.emphasis);
         setNotice(null);
@@ -81,6 +85,7 @@ export default function Lecture() {
   return (
     <ScrollView style={s.screen}>
       <Text style={s.h1}>{title}</Text>
+      <TranscriptSourceNote source={source} />
       {notice ? <ErrorNote message={notice} onRetry={load} /> : null}
 
       {emphasis.length > 0 ? (

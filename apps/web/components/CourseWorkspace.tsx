@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, messageFor } from '@/lib/client';
+import { TranscriptSourceNote, type TranscriptionSource } from '@/components/TranscriptSourceNote';
 
 export interface LectureRow {
   id: string;
@@ -13,6 +14,7 @@ export interface LectureRow {
   segmentCount: number;
   hasRecording: boolean;
   folder: string | null;
+  transcription: TranscriptionSource | null;
 }
 
 export interface MaterialRow {
@@ -181,7 +183,8 @@ export function CourseWorkspace({
                     <Link href={`/lectures/${lecture.id}`}>{lecture.title}</Link>
                   </h3>
                   <p className="muted" style={{ margin: '0.35rem 0 0' }}>
-                    <span className={`pill pill-${lecture.status}`}>{lecture.status}</span>
+                    <span className={`pill pill-${lecture.status}`}>{lecture.status}</span>{' '}
+                    <TranscriptSourceNote source={lecture.transcription} compact />
                     {lecture.segmentCount > 0
                       ? ` · transcript ready (${lecture.segmentCount} segments)`
                       : lecture.hasRecording

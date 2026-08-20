@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { getLecture } from '@sanad/core';
+import { readLecture } from '@sanad/core';
 import { db, lectureEmphasis, transcriptSegments } from '@sanad/db';
 import { requireUser, subjectOf } from '@/lib/auth';
 import { handler, json } from '@/lib/http';
@@ -7,7 +7,7 @@ import { handler, json } from '@/lib/http';
 export const GET = handler(async (request, { params }) => {
   const user = await requireUser();
   const { lectureId } = await params;
-  const lecture = await getLecture(db(), subjectOf(user), lectureId as string);
+  const lecture = await readLecture(db(), subjectOf(user), lectureId as string);
 
   const segments = await db()
     .select()
@@ -24,7 +24,14 @@ export const GET = handler(async (request, { params }) => {
   const raw = new URL(request.url).searchParams.get('raw') === '1';
 
   return json({
-    lecture: { id: lecture.id, title: lecture.title, status: lecture.status },
+    lecture: {
+      id: lecture.id,
+      title: lecture.title,
+      status: lecture.status,
+      // Never omitted: a transcript nobody recognized must say so wherever it
+      // is read, not only where it was produced.
+      transcription: lecture.transcription,
+    },
     segments: segments.map((s) => ({
       id: s.id,
       seq: s.seq,

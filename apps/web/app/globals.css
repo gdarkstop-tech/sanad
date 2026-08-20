@@ -13,6 +13,7 @@
   --accent: #0b6d75;
   --accent-ink: #ffffff;
   --danger: #9b2c2c;
+  --warn: #8a5a00;
   --radius: 10px;
   --pad: 1rem;
 }
@@ -28,6 +29,7 @@
     --accent: #4dc4cd;
     --accent-ink: #06211f;
     --danger: #f6a6a6;
+    --warn: #e0c06f;
   }
 }
 
@@ -216,3 +218,14 @@ ul.sources li { border-inline-start: 2px solid var(--line); padding-inline-start
 .activity li { display: flex; justify-content: space-between; gap: 1rem; padding-block: 0.35rem; border-block-end: 1px solid var(--line); }
 .activity li:last-child { border-block-end: none; }
 .notice { border-inline-start: 3px solid var(--ink-faint); padding-inline-start: 0.7rem; margin-block: 0.8rem; }
+
+/* Synthetic transcript warning. Loud enough to be read, not so loud it is ignored. */
+.pill-synthetic { border-color: var(--warn, #a8761a); color: var(--warn, #a8761a); }
+.synthetic-note {
+  border: 1px dashed var(--warn, #a8761a);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  margin-block: 0.8rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}

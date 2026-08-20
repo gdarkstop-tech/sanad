@@ -27,6 +27,35 @@ export interface LectureView {
   createdAt: Date;
   hasRecording: boolean;
   segmentCount: number;
+  /**
+   * How the transcript was produced, or null when there isn't one.
+   *
+   * This is surfaced, not merely stored. On a machine without whisper.cpp the
+   * pipeline falls back to `FixtureAsrProvider`, which *synthesizes* plausible
+   * lecture sentences from the audio's hash — useful for developing the rest of
+   * the pipeline, indistinguishable from a real transcript on screen. A student
+   * looking at a synthetic transcript has to be told so, and so does anyone
+   * reading an answer, a flashcard or a summary derived from it.
+   */
+  transcription: TranscriptionSource | null;
+}
+
+export interface TranscriptionSource {
+  provider: string;
+  model: string | null;
+  /** True when nothing recognized real speech: the text is placeholder content. */
+  isSynthetic: boolean;
+}
+
+/** Providers that do not perform real speech recognition. */
+const SYNTHETIC_ASR_PROVIDERS = new Set(['fixture']);
+
+export function transcriptionSourceOf(
+  provider: string | null,
+  model: string | null,
+): TranscriptionSource | null {
+  if (!provider) return null;
+  return { provider, model, isSynthetic: SYNTHETIC_ASR_PROVIDERS.has(provider) };
 }
 
 export async function createLecture(
@@ -74,7 +103,7 @@ export async function listLectures(
   return Promise.all(
     rows.map(async (row) => {
       const counts = await lectureCounts(db, row.id);
-      return toView(row, counts.hasRecording, counts.segmentCount);
+      return toView(row, counts.hasRecording, counts.segmentCount, counts.transcription);
     }),
   );
 }
@@ -104,7 +133,7 @@ export async function readLecture(
 ): Promise<LectureView> {
   const row = await getLecture(db, subject, lectureId);
   const counts = await lectureCounts(db, row.id);
-  return toView(row, counts.hasRecording, counts.segmentCount);
+  return toView(row, counts.hasRecording, counts.segmentCount, counts.transcription);
 }
 
 /**
@@ -146,7 +175,7 @@ export async function updateLecture(
   if (!updated) throw Errors.notFound('Lecture');
 
   const counts = await lectureCounts(db, updated.id);
-  return toView(updated, counts.hasRecording, counts.segmentCount);
+  return toView(updated, counts.hasRecording, counts.segmentCount, counts.transcription);
 }
 
 export async function deleteLecture(
@@ -203,7 +232,11 @@ export async function openSession(
 async function lectureCounts(
   db: Database,
   lectureId: string,
-): Promise<{ hasRecording: boolean; segmentCount: number }> {
+): Promise<{
+  hasRecording: boolean;
+  segmentCount: number;
+  transcription: TranscriptionSource | null;
+}> {
   const [recording] = await db
     .select({ id: materials.id })
     .from(materials)
@@ -221,13 +254,28 @@ async function lectureCounts(
     .from(transcriptSegments)
     .where(eq(transcriptSegments.lectureId, lectureId));
 
-  return { hasRecording: Boolean(recording), segmentCount: segments.length };
+  // The most recent session that actually produced a transcript is the one
+  // whose provenance the transcript carries.
+  const [session] = await db
+    .select({ provider: lectureSessions.asrProvider, model: lectureSessions.asrModel })
+    .from(lectureSessions)
+    .where(eq(lectureSessions.lectureId, lectureId))
+    .orderBy(desc(lectureSessions.startedAt))
+    .limit(1);
+
+  return {
+    hasRecording: Boolean(recording),
+    segmentCount: segments.length,
+    transcription:
+      segments.length > 0 ? transcriptionSourceOf(session?.provider ?? null, session?.model ?? null) : null,
+  };
 }
 
 function toView(
   row: typeof lectures.$inferSelect,
   hasRecording: boolean,
   segmentCount: number,
+  transcription?: TranscriptionSource | null,
 ): LectureView {
   return {
     id: row.id,
@@ -240,5 +288,6 @@ function toView(
     createdAt: row.createdAt,
     hasRecording,
     segmentCount,
+    transcription: transcription ?? null,
   };
 }

@@ -170,3 +170,43 @@ export function ComingSoon({
     </View>
   );
 }
+
+
+/**
+ * Says how a transcript was produced, when that matters.
+ *
+ * Without whisper.cpp installed the pipeline falls back to a fixture provider
+ * that *synthesizes* plausible lecture sentences from the audio's hash. On
+ * screen that is indistinguishable from a real transcript, and a student must
+ * never mistake placeholder text for what their professor said. Renders nothing
+ * when real recognition produced it — a banner on every lecture is a banner
+ * nobody reads.
+ */
+export function TranscriptSourceNote({
+  source,
+  compact = false,
+}: {
+  source: { isSynthetic: boolean } | null | undefined;
+  compact?: boolean;
+}) {
+  if (!source?.isSynthetic) return null;
+  if (compact) return <Pill text="demo transcript" tone="warn" />;
+
+  return (
+    <View
+      style={[
+        s.card,
+        { borderColor: theme.warn, borderStyle: 'dashed', backgroundColor: 'transparent' },
+      ]}
+    >
+      <Text style={[s.body, { color: theme.warn, fontWeight: '600' }]}>
+        This is a demo transcript, not speech recognition.
+      </Text>
+      <Text style={[s.muted, { marginTop: 6 }]}>
+        No engine is installed on the server, so Sanad generated placeholder sentences
+        instead of transcribing the audio. Your recording is stored untouched. Anything
+        derived from this lecture comes from the placeholder text, not from what was said.
+      </Text>
+    </View>
+  );
+}

@@ -1,9 +1,10 @@
 import { eq } from 'drizzle-orm';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { formatTimestamp, getLecture } from '@sanad/core';
+import { formatTimestamp, readLecture } from '@sanad/core';
 import { db, lectureEmphasis, transcriptSegments } from '@sanad/db';
 import { AskPanel } from '@/components/AskPanel';
+import { TranscriptSourceNote } from '@/components/TranscriptSourceNote';
 import { currentUser, subjectOf } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,7 @@ export default async function LecturePage({
   if (!user) redirect('/sign-in');
   const { lectureId } = await params;
 
-  const lecture = await getLecture(db(), subjectOf(user), lectureId);
+  const lecture = await readLecture(db(), subjectOf(user), lectureId);
   const segments = await db()
     .select()
     .from(transcriptSegments)
@@ -45,6 +46,8 @@ export default async function LecturePage({
         <span className={`pill pill-${lecture.status}`}>{lecture.status}</span>
         {segments.length > 0 ? ` · ${segments.length} transcript segments` : ' · no transcript yet'}
       </p>
+
+      <TranscriptSourceNote source={lecture.transcription} />
 
       <div className="stack-lg">
         {emphasis.length > 0 ? (

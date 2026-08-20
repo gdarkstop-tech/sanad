@@ -75,6 +75,7 @@ export default async function CoursePage({
             segmentCount: l.segmentCount,
             hasRecording: l.hasRecording,
             folder: l.folder,
+            transcription: l.transcription,
           }))}
           materials={materials.map((m) => ({
             id: m.id,

@@ -18,9 +18,11 @@ import {
   detectEmphasis,
   detectSegmentLanguage,
   embedPendingChunks,
+  readLecture,
   retrieve,
   runPending,
   seedEmphasisCues,
+  transcriptionSourceOf,
   setAsrProvider,
   setEmbeddingProvider,
   setStorage,
@@ -361,5 +363,43 @@ describe('Ask Sanad — grounded answering', () => {
     const [message] = await db.select().from(qaMessages);
     expect(message?.refused).toBe(true);
     expect(message?.refusalReason).toBe('below_threshold');
+  });
+});
+
+describe('transcript provenance', () => {
+  /**
+   * Without whisper.cpp the pipeline falls back to a fixture that *synthesizes*
+   * plausible lecture sentences. That is fine for development and unacceptable
+   * on screen without a warning, so the flag has to survive from the session
+   * row all the way to whatever renders the lecture.
+   */
+  it('marks a fixture-produced transcript as synthetic', async () => {
+    const owner = await student();
+    const offering = await course(owner);
+    const seeded = await seedLecture(owner, offering.id, 'Lecture 01', [
+      { text: 'A hash table maps keys to buckets using a hash function' },
+    ]);
+
+    const view = await readLecture(db, owner, seeded.id);
+    expect(view.transcription).not.toBeNull();
+    expect(view.transcription?.provider).toBe('fixture');
+    expect(view.transcription?.isSynthetic).toBe(true);
+  });
+
+  it('does not mark a real engine as synthetic', () => {
+    // The allowlist is on the fake, not the real ones: a new engine added later
+    // is treated as real unless it declares otherwise.
+    expect(transcriptionSourceOf('whispercpp', 'base')?.isSynthetic).toBe(false);
+    expect(transcriptionSourceOf('fixture', 'fixture-v1')?.isSynthetic).toBe(true);
+  });
+
+  it('reports nothing when there is no transcript to attribute', async () => {
+    const owner = await student();
+    const offering = await course(owner);
+    const lecture = await createLecture(db, owner, offering.id, { title: 'Not recorded yet' });
+
+    const view = await readLecture(db, owner, lecture.id);
+    expect(view.segmentCount).toBe(0);
+    expect(view.transcription).toBeNull();
   });
 });
