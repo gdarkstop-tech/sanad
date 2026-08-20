@@ -65,6 +65,7 @@ Phase 2+ ones that are listed but unused, so the shape is known in advance.
 | `pnpm check:course-agnostic` | Fail if a seeded subject term leaked into code |
 | `pnpm verify:isolation <url>` | Probe cross-student isolation over HTTP against a running server |
 | `pnpm verify:ui <url>` | Drive the real UI in Chromium — the only check that runs client components |
+| `pnpm verify:demo <url>` | Check every beat in docs/DEMO.md against the running product |
 | `pnpm setup` | Clean checkout → installed, configured, migrated, seeded |
 | `pnpm setup:docker` | The same, starting PostgreSQL in a container first |
 | `pnpm check:db` | Is PostgreSQL reachable, and does it have pgvector? |
@@ -139,7 +140,7 @@ case: a subject name used as an example inside a code comment.
 
 ```
 apps/web          Next.js — web app and the REST API
-apps/mobile       Expo / React Native — 13 screens against the same API
+apps/mobile       Expo / React Native — 16 screens against the same API
 packages/db       Drizzle schema + migrations   ← sole schema owner
 packages/core     Domain services: auth, courses, permissions, retrieval, text
                   ingestion/  PDF, text, DOCX, PPTX extractors

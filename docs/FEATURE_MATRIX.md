@@ -416,7 +416,7 @@ No fake network requests. No fabricated processing. Each surface states what it 
 | Translation | Partial | Yes, honestly | Language selection works; the UI says content stays in the lecture's language. Nothing claims a translation that did not happen |
 | Community Feed | Coming Soon | Preview only | Static, inert, labelled. No social backend |
 | Course activity | Implemented | Yes | Real data only — recent lecture, next exam, how much is transcribed. Says so when there is nothing to show |
-| Mobile app | Implemented | **Yes, with a caveat** | 15 screens, typechecks and bundles (954 modules → 2.65 MB). **Not run on a physical device** |
+| Mobile app | Implemented | **Yes, with a caveat** | 15 screens, typechecks and bundles (955 modules → 2.66 MB). **Not run on a physical device** |
 | Cross-student isolation | Implemented | Yes | 21 tests plus 15 live HTTP checks |
 
 ## Counts
@@ -435,19 +435,19 @@ Counted from the sections above, not estimated: 23 rows marked **Implemented**, 
 Everything above was run, in this order, against a clean database:
 
 ```
-TypeScript tests        272 passed (15 files)
+TypeScript tests        275 passed (15 files)
 Python tests             55 passed
 Root typecheck            0 errors
 Mobile typecheck          0 errors
 Production build          clean
-Expo bundle               954 modules → 2.65 MB Hermes bundle
+Expo bundle               955 modules → 2.66 MB Hermes bundle
 Course-agnostic check     OK (25 seeded terms, none in code)
 Isolation over HTTP       15/15
-Browser UI checks         25/25, no console errors
+Browser UI checks         37/37, no console errors
 Clean migrate + seed      17 study sessions around a real week
 ```
 
-New tests this pass: `office.test.ts` (15), `profile.test.ts` (17), `organization.test.ts` (11) — 43 in total, taking the suite from 229 to 272.
+New tests this pass: `office.test.ts` (15), `profile.test.ts` (17), `organization.test.ts` (11) — 43 in total, taking the suite from 229 to 275.
 
 ## Known limitations
 

@@ -35,6 +35,7 @@ run "Mobile bundle"          pnpm --filter @sanad/mobile exec expo export --plat
 
 if curl -sf -o /dev/null "$BASE/sign-in"; then
   run "Cross-student isolation" pnpm exec tsx scripts/verify-isolation.ts "$BASE"
+  run "Demo beats"              pnpm exec tsx scripts/verify-demo.ts "$BASE"
   run "Browser UI checks"       node scripts/verify-ui.mjs "$BASE"
 else
   printf '\n\033[33mSKIP\033[0m  Isolation and browser checks — no server at %s\n' "$BASE"

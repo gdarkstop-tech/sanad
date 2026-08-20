@@ -9,7 +9,11 @@ Every feature, checked against the code that implements it — not against docum
 - `COMING SOON` — a labelled preview surface exists; no backend, no fake requests
 - `FUTURE` — not exposed in the app at all
 
-**"Mobile Tested" means a physical device.** Nowhere in this document does it say yes, because **no Android phone was available in this environment**. Typechecking and Hermes bundling are recorded under "Tested", not here. See [COMPETITION_READINESS.md](COMPETITION_READINESS.md) §4.
+**"Mobile Tested" means a physical device.** Nowhere in this document does it say yes:
+
+> **Mobile runtime and microphone capture have not been physically verified.**
+
+No Android device was available — `adb` is not installed and there is no USB bus. Typechecking and Hermes bundling are recorded under "Tested", where they belong. See [COMPETITION_READINESS.md](COMPETITION_READINESS.md) §4.
 
 ---
 
@@ -158,7 +162,8 @@ pnpm build                  clean
 expo export (android)       955 modules → 2.66 MB Hermes bundle
 check-course-agnostic       OK, 25 seeded terms, none in code
 verify-isolation            15/15 over HTTP
-verify-ui                   33/33 in Chromium, no console errors
+verify-demo                 30/30 — every beat in DEMO.md
+verify-ui                   37/37 in Chromium, no console errors
 pnpm setup (fresh clone)    clean checkout → seeded demo
 pnpm demo:reset             database rebuilt and reseeded
 ```

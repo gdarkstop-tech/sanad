@@ -24,6 +24,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "verify:all": "bash scripts/verify-all.sh",
+    "verify:demo": "tsx scripts/verify-demo.ts",
     "verify:isolation": "tsx scripts/verify-isolation.ts",
     "verify:ui": "node scripts/verify-ui.mjs"
   },

@@ -2,7 +2,11 @@
 
 Written to be checked, not believed. Every claim below names the command that produces it.
 
-**The one thing to read first:** the mobile app has **never been run on a physical device**. No Android phone was available. It typechecks against real Expo types and bundles to Hermes bytecode, and the queue underneath it has 29 Node tests — but audio capture, microphone permissions and background behaviour are unverified in practice. §4 says exactly what that means for the demo.
+**The one thing to read first:**
+
+> **Mobile runtime and microphone capture have not been physically verified.**
+
+No Android device was available — `adb` is not installed and there is no USB bus. The app typechecks against real Expo types and bundles to Hermes bytecode, and the queue underneath it has 29 Node tests — but not one of them involves a microphone, and nothing has rendered on a device. §4 says exactly what that means for the demo.
 
 ---
 
@@ -46,7 +50,8 @@ Executed in this environment, with output read:
 | Mobile bundle | `expo export --platform android` | 955 modules → 2.66 MB Hermes |
 | Course-agnostic | `pnpm check:course-agnostic` | OK, 25 terms, none in code |
 | Isolation over HTTP | `pnpm verify:isolation <url>` | **15/15** |
-| Browser UI | `pnpm verify:ui <url>` | **33/33**, no console errors |
+| Demo beats | `pnpm verify:demo <url>` | **30/30** — every claim in DEMO.md |
+| Browser UI | `pnpm verify:ui <url>` | **37/37**, no console errors |
 | Clean install | `pnpm setup` on a fresh `git clone` | clean checkout → seeded demo |
 | Demo reset | `pnpm demo:reset` | database rebuilt and reseeded |
 | Clean migration | `pnpm db:migrate` from an empty database | all 6 migrations applied |
@@ -63,7 +68,7 @@ These have thorough automated coverage and have **not** been exercised on the ha
 
 ## 4. What remains unverified
 
-1. **The mobile app on a real device.** Permissions, audio capture, background behaviour, and the Expo Go pairing itself. This is the single biggest gap. See §6 for how the demo handles it.
+1. **The mobile app on a real device.** **Mobile runtime and microphone capture have not been physically verified.** Permissions, audio capture, background behaviour, and the Expo Go pairing itself are all unknown in practice. This is the single biggest gap. See §6 for how the demo handles it.
 2. **Real speech recognition.** No ASR engine has been chosen, because **no lecture audio has been supplied to benchmark one** — [ASR_BENCHMARK.md](../ASR_BENCHMARK.md) §10. `whisper-cli` is not installed here, so every transcript in this build is placeholder text, and the app now says so.
 3. **Arabic RTL rendering by eye.** Mixed-script segments store, serve and test correctly; the visual result has not been reviewed on a device.
 4. **Arabic dialect coverage.** Unmeasurable until real audio exists.
@@ -146,7 +151,9 @@ Verify everything at once:
 pnpm verify:all http://localhost:3000
 ```
 
-It continues past failures so one problem does not hide the state of the rest, and skips the browser checks rather than failing them when no server is running.
+It continues past failures so one problem does not hide the state of the rest, and skips the server-dependent checks rather than failing them when nothing is running.
+
+`pnpm verify:demo` deserves a special mention: it walks every beat [DEMO.md](DEMO.md) promises and checks the product actually does it. A demo script is a set of promises made to a room, and a seed change or a renamed roadmap entry should break there rather than on stage.
 
 ## 9. Troubleshooting
 

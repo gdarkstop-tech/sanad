@@ -94,67 +94,107 @@ Rationale, and what was rejected, in [ARCHITECTURE.md](ARCHITECTURE.md) §3.
 
 ## Status
 
-Written to be checkable. Every "implemented" row below has a command that demonstrates it.
+Three categories, kept strictly separate. Full detail with per-feature test
+evidence: **[docs/FINAL_FEATURE_MATRIX.md](docs/FINAL_FEATURE_MATRIX.md)**.
 
-### Implemented and verified
+### Available Now
+
+Genuinely implemented, with a test or a reproducible command behind each one.
 
 | Capability | How to verify |
 |---|---|
-| Email/password accounts, Argon2id, opaque server sessions, email-verification tokens (generated and stored hashed; delivery is not wired) | `pnpm test` — `auth.test.ts`, `security.test.ts` |
-| CSRF double-submit, Postgres fixed-window rate limiting | `security.test.ts` (20 tests) |
-| Student-created, student-owned courses in any discipline | `courses.test.ts` |
-| Lectures, resumable and idempotent uploads, checksum verification | `content.test.ts` |
-| Transcripts with per-segment timestamps, language and code-switch detection, confidence bands | `rag.test.ts` |
-| Instructor-emphasis detection from the professor's own phrasing | `rag.test.ts`, and Beat 2 of the demo |
-| PDF and text extraction with page and character anchors | `content.test.ts` |
-| Hybrid search across transcripts and documents, with deep links | `rag.test.ts`, `/api/v1/search` |
-| Grounded answering with validated citations, and **refusal below a confidence threshold** | `rag.test.ts`, Beat 5 of the demo |
-| Exam Mode: summary, key terms, flashcards, questions — every item sourced | `exam.test.ts` (20 tests) |
-| Mastery tracking, with confidence held separately from score | `exam.test.ts` |
-| Deterministic study planning, no double-booking (enforced by an EXCLUDE constraint) | `coach.test.ts` |
-| Offline recording queue: resume by byte offset, no duplicate on retry, survives app restart | `offline-queue.test.ts` (29 tests) |
-| Streaming SHA-256 on device, matching the server's digest | `offline-queue.test.ts`, checked against `node:crypto` |
-| One student cannot reach another's courses, recordings, materials, search or AI context | `isolation.test.ts` (21 tests) and `pnpm verify:isolation <url>` (15 checks, live) |
-| Course-agnostic: no subject term in application code | `pnpm check:course-agnostic` (fails CI) — it has caught two real leaks so far |
-| Student profile: university, faculty, department, academic year | `profile.test.ts` (17) |
-| Course archiving and folders | `organization.test.ts` (11) |
-| DOCX and **slide-anchored** PPTX ingestion | `office.test.ts` (15) |
-| Schedule integration: university, work, gym, commitments, exam dates | `coach.test.ts`, and the seeded week produces **zero Monday sessions** against a shift |
-| The interactive UI actually works after hydration | `pnpm verify:ui <url>` — 25 checks in a real browser |
-| The Expo app compiles and bundles | `cd apps/mobile && pnpm exec tsc --noEmit && pnpm exec expo export --platform android` |
+| Email/password accounts, Argon2id, opaque sessions, logout | `auth.test.ts` (18) |
+| CSRF double-submit, Postgres rate limiting (no Redis) | `security.test.ts` (20) |
+| Student profile — university, faculty, department, year, major | `profile.test.ts` (17) |
+| Student-created courses in any discipline; rename, archive, restore, delete | `courses.test.ts`, `organization.test.ts` |
+| Folders for lectures and materials | `organization.test.ts` (11) |
+| Lectures, resumable and idempotent uploads, checksum verification | `content.test.ts` (22) |
+| Offline recording queue — resume by offset, no duplicates, survives restart | `offline-queue.test.ts` (29) |
+| PDF (page), PPTX (**slide**), DOCX (character), text ingestion | `content.test.ts`, `office.test.ts` (15) |
+| Transcript timestamps, code-switching, confidence bands, emphasis | `rag.test.ts` (19) |
+| **Transcript provenance disclosure** — placeholder text says so | `rag.test.ts`, browser |
+| Hybrid search, per-course and across all courses | `rag.test.ts`, browser |
+| Ask Sanad with validated citations | `rag.test.ts`, browser |
+| **Refusal below threshold** — generator never invoked | `rag.test.ts`, browser |
+| Exam Mode: summary, key terms, flashcards, sourced questions | `exam.test.ts` (20) |
+| Mastery tracking, confidence separate from score | `exam.test.ts` |
+| Study Coach around university, work, gym, commitments, exam dates | `coach.test.ts` (20) |
+| Cross-student isolation on every surface | `isolation.test.ts` (21) + `pnpm verify:isolation` |
+| Course-agnostic: no subject term in application code | `pnpm check:course-agnostic` |
 
-275 TypeScript tests, 55 Python tests, a clean typecheck and a clean production build.
+### Coming Soon
 
-Feature-by-feature detail, including what is *not* built: **[docs/FEATURE_MATRIX.md](docs/FEATURE_MATRIX.md)**.
+A labelled preview surface exists. No backend, no fake requests, nothing that
+behaves like a broken feature. Defined once in `@sanad/contracts/roadmap` and
+rendered identically on web and mobile.
 
-### Implemented but not guaranteed
+AI Voice Tutor · YouTube Import · Video Understanding · Community Feed ·
+Instructor & TA Community · Live Translation · Smart Translation ·
+Collaborative Study · AI Study Groups · Advanced OCR · Live Transcription
 
-| Thing | What is true | What is not |
-|---|---|---|
-| **The mobile app** | 15 screens, typechecks against real Expo and React Native types, bundles to a 2.65 MB Hermes bundle; its queue logic is covered by 29 Node tests | **It has not been run on a physical device or simulator.** Permissions, audio capture, and background behaviour are unverified in practice |
-| **Real speech recognition** | `WhisperCppProvider` spawns a real binary and detects its own availability | It has not been run against real lecture audio here, and `whisper-cli` is not installed in this environment |
-| **Answer quality** | Extractive answers cannot state something the source does not say | They are quotations, not prose. They will read as quotations |
-| **Arabic handling** | Normalization is shared by the TypeScript and Python code paths and checked against the same vectors | Dialect coverage has not been measured on real audio |
-| **Study-content language** | Arabic, English and Chinese can be selected, and the UI says content stays in the language of the lecture | **Nothing is translated.** The provider throws rather than passing text through, so no path can claim a translation that did not happen |
+### Future
 
-### Not implemented
+Not exposed in the app at all: professor and TA portals, Google/Apple sign-in,
+S3-compatible storage, mail delivery, gamification, AI whiteboard.
 
-| Thing | Why |
-|---|---|
-| **A chosen ASR engine** | The benchmark has no audio to run on. **Benchmark pending real audio** — no engine measured, no winner chosen. [ASR_BENCHMARK.md](ASR_BENCHMARK.md) §10 |
-| **Live transcription** | Deliberate. A live tier has to clear a real-time factor nobody has measured. [docs/LIVE_TRANSCRIPTION_DECISION.md](docs/LIVE_TRANSCRIPTION_DECISION.md) |
-| **Translation generation** | Language *selection* is built and honest about its limits; no translation model runs at $0 for Arabic↔English↔Chinese technical text. Translating an extracted quotation would also break the link between a sentence and its timestamp |
-| **AI Voice Tutor** | Preview only. It must route through the same retrieval and refusal as Ask Sanad when built — voice is an input shell, never a second answering engine |
-| **YouTube URL import** | Preview only. Uploading a video file works; importing from a URL needs reliable audio extraction and a licence position |
-| **Sanad Community** | Preview only. A social layer needs moderation, abuse handling and a privacy review before it touches student work |
-| **Professor and TA portals, community features, AI whiteboard, gamification** | Out of scope until the core is stable. [MVP.md](MVP.md) |
-| **OCR for scanned PDFs** | A scanned PDF is reported as such, with a message the student can act on, rather than silently producing nothing |
-| **S3-compatible object storage** | `StorageProvider` exists so this is a provider swap rather than a rewrite, but only `LocalDiskStorage` is implemented |
-| **Email delivery** | Verification tokens are generated and stored hashed; no mail transport is wired |
+### Counts
 
-### Not deployed
+**52 implemented · 8 partial · 11 Coming Soon · 6 future** — counted from the
+rows of the matrix, not estimated.
 
-This runs on a laptop against a local PostgreSQL. It has not been deployed publicly, and the security work that must precede that — HTTPS termination, real secret management, mail delivery, backup and retention enforcement — is listed in [ARCHITECTURE.md](ARCHITECTURE.md) §11.
+---
+
+## Verification
+
+Last run, in this repository, with output read:
+
+```
+pnpm test                 275 passed, 15 files
+pnpm test:asr              55 passed
+pnpm typecheck              0 errors
+mobile tsc --noEmit         0 errors
+pnpm build                  clean
+expo export (android)       955 modules → 2.66 MB Hermes bundle
+pnpm check:course-agnostic  OK, 25 seeded terms, none in code
+pnpm verify:isolation      15/15 over HTTP
+pnpm verify:demo           30/30 — every beat in DEMO.md
+pnpm verify:ui             37/37 in Chromium, no console errors
+pnpm setup (fresh clone)    clean checkout → seeded demo
+pnpm demo:reset             database rebuilt and reseeded
+pnpm verify:all            10/10 in one run
+```
+
+Reproduce all of it:
+
+```bash
+pnpm verify:all http://localhost:3000
+```
+
+---
+
+## Known Limitations
+
+1. **Mobile runtime and microphone capture have not been physically verified.**
+   No Android device was available. The app typechecks against real Expo types
+   and bundles to Hermes, and the upload queue has 29 Node tests — but none of
+   them involves a microphone, and nothing has rendered on a device.
+2. **No ASR engine has been chosen, and none is installed here.** No lecture
+   audio has been supplied to benchmark one ([ASR_BENCHMARK.md](ASR_BENCHMARK.md)
+   §10), so **every transcript in this build is placeholder text**. The app says
+   so on the lecture page, badges it in the archive, and warns on anything
+   derived from it. Documents are read for real regardless.
+3. **No translation.** Language selection works and states plainly that content
+   stays in the language of the lecture. Nothing is translated.
+4. **No live transcription**, deliberately —
+   [docs/LIVE_TRANSCRIPTION_DECISION.md](docs/LIVE_TRANSCRIPTION_DECISION.md).
+5. **Unsupported formats.** Legacy binary `.doc` and `.ppt` are refused with an
+   actionable message rather than mangled. Scanned PDFs are reported as scans;
+   OCR is Coming Soon. Images are stored but not read.
+6. **Answers read as quotations, not prose.** That is what makes them incapable
+   of stating something the source does not say.
+7. **No mail delivery.** Verification tokens are generated and stored hashed; no
+   SMTP transport is wired. Blocks public deployment, not the demo.
+8. **Not deployed.** Runs on a laptop against local PostgreSQL.
 
 ## الخلاصة بالعربي
 

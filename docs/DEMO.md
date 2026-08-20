@@ -30,6 +30,8 @@ Computer Science — Data Structures
   · Lecture 03 — Sorting and complexity (9 segments)
   · Lecture 04 — Hash tables (7 segments)
   · week-4-slides.pdf
+  · week-4-lecture-deck.pptx (slide-anchored)
+  · tutorial-notes.docx
 
 Biology — Cell Structure
   · Lecture 02 — Membrane transport (7 segments)
@@ -51,7 +53,7 @@ Reset before the real run. A demo account that has been clicked through already 
 ### Checks worth running once, in the room, before anyone is watching
 
 ```bash
-pnpm test                    # 272 tests
+pnpm test                    # 275 tests
 pnpm typecheck               # clean
 pnpm check:course-agnostic   # no subject term leaked into code
 pnpm verify:isolation http://localhost:3000
@@ -92,29 +94,34 @@ Point at:
 - **A flagged moment**, at `1:12`: *"This is important for the exam: know when to resize the table."* Sanad detected the professor's own emphasis phrasing and marked it.
 - **An uncertain passage at `1:00`**, underlined and greyed: `الـ rehashing بيحصل لما الـ load factor يعدي الحد`. The recognizer was not confident there, and the transcript says so rather than presenting every line as equally reliable.
 
-> "This is the professor's actual sentence, at the actual second. Everything after this points back here."
+- **A note at the top saying this is a demo transcript**, not speech recognition. No engine is installed, so Sanad generated placeholder sentences rather than transcribing.
+
+> "This is the sentence, at the second it was said — and where Sanad hasn't actually recognised the speech, it tells you instead of letting placeholder text look like a real transcript. That is the same instinct as the refusal you'll see in a moment."
 
 ### Beat 3 — Search (20 seconds)
 
-In the course page, search **`collision`**.
+In the course page, search **`open addressing`**.
 
-Two results, each labelled `Lecture 04 — Hash tables — 0:24`, each a link that opens the transcript **at that second**.
+Three results: `week-4-lecture-deck.pptx — slide 3`, then two lecture moments at `0:48` and `0:24`, each a link that opens the transcript **at that second**.
 
-> "Not a keyword match on a filename. The exact moment in the lecture."
+> "Not a keyword match on a filename. The exact slide, and the exact moment in the lecture."
 
-### Beat 4 — Ask Sanad, grounded (40 seconds)
+### Beat 4 — Ask Sanad, grounded (45 seconds)
 
-Ask: **"What did the professor say about hash tables?"**
+Ask: **"What is chaining in a hash table?"**
 
-The answer quotes the material and lists its sources:
+The answer quotes the material and lists its sources — every anchor kind Sanad supports, in one answer:
 
 ```
-• "A hash table maps keys to buckets using a hash function" — Lecture 04 — Hash tables — 0:00
-• "Hash table load factor is the ratio of stored entries to available buckets." — week-4-slides.pdf — page 1
-• "Open addressing probes for the next free slot instead of chaining" — Lecture 04 — Hash tables — 0:48
+tutorial-notes.docx
+Lecture 04 — Hash tables — 0:00
+week-4-slides.pdf — page 1
+week-4-lecture-deck.pptx — slide 1
 ```
 
-> "Two sources are the lecture, at 0:00 and 0:48. The third is the slide deck, page 1. All three are links. Nothing here is generated prose — every sentence is quoted from the student's own material, so it cannot say something the course does not."
+> "A Word document, the lecture at zero seconds, page one of the PDF, and slide one of the deck. All four are links. Nothing here is generated prose — every sentence is quoted from the student's own material, so it cannot say something the course does not."
+
+**Say this too, and point at the note above the box:** some of these lectures have demo transcripts rather than real speech recognition, and Sanad says so rather than letting a timestamp inside placeholder text look like evidence. The documents are read for real.
 
 ### Beat 5 — The refusal (30 seconds) — **the most important beat**
 
@@ -188,13 +195,15 @@ Show the **Queue** tab: each recording with its state — `queued`, `uploading`,
 pnpm exec vitest run tests/integration/offline-queue.test.ts
 ```
 
-### Beat 8b — The roadmap (30 seconds)
+### Beat 8b — The roadmap (40 seconds)
 
-Bottom of **Study plan**, and the **Community** tab.
+Bottom of **Study plan**, bottom of any **course**, and the **Community** tab. Eleven cards, each saying what it will do and that it is not available:
 
-Four cards, each saying what it will do and that it is not available: **AI Voice Tutor**, **YouTube import**, **full translation**, **Sanad Community**. Open the Community preview — posts, a TA answer, an AI reply badged as AI.
+**AI Voice Tutor** · **YouTube Import** · **Video Understanding** · **Community Feed** · **Instructor & TA Community** · **Live Translation** · **Smart Translation** · **Collaborative Study** · **AI Study Groups** · **Advanced OCR** · **Live Transcription**
 
-> "That is the roadmap, and none of it is pretending. Nothing on these screens makes a request, because a preview that behaves like a broken feature is worse than no preview."
+Open the Community preview — posts, a TA answer, an AI reply badged as AI.
+
+> "That is the roadmap, and none of it is pretending. Nothing on these screens makes a request, because a preview that behaves like a broken feature is worse than no preview. They're defined in one file that both the web app and the phone read, so a feature can't be 'coming soon' here and quietly implied to work there."
 
 One more, on the course page: pick **中文** in Exam Mode.
 
