@@ -13,12 +13,18 @@ What that does and does not include is set out in [Status](#status), below. It i
 plainly, including the parts that are not finished.
 
 ```bash
-pnpm install && cp .env.example .env
-createdb sanad_dev && pnpm db:migrate && pnpm db:seed:demo
-pnpm dev     # then sign in with the account the seed prints
+pnpm setup   # installs, writes .env, checks the database, migrates, seeds
+pnpm dev     # → http://localhost:3000, sign in with the account the seed prints
 ```
 
-Running the demo in front of an audience: [docs/DEMO.md](docs/DEMO.md).
+No PostgreSQL installed? `pnpm setup:docker` starts one container and does the rest.
+Nothing needs an account, an API key, or a paid service.
+
+**Setting it up on a new machine, or running the demo:** start with
+[docs/COMPETITION_READINESS.md](docs/COMPETITION_READINESS.md) — setup, reset,
+troubleshooting, the demo sequence, and an honest account of what has and has not
+been verified. Feature-by-feature detail is in
+[docs/FINAL_FEATURE_MATRIX.md](docs/FINAL_FEATURE_MATRIX.md).
 
 ---
 
@@ -54,7 +60,9 @@ Read them in that order. `ARCHITECTURE.md` §11 records the decisions taken and 
 | Document | Contents |
 |---|---|
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, migrations, tests |
-| [docs/FEATURE_MATRIX.md](docs/FEATURE_MATRIX.md) | Every feature, verified against the code: implemented, partial, preview, or future |
+| [docs/COMPETITION_READINESS.md](docs/COMPETITION_READINESS.md) | Setup, reset, troubleshooting, the demo sequence, and what is and is not verified |
+| [docs/FINAL_FEATURE_MATRIX.md](docs/FINAL_FEATURE_MATRIX.md) | Every feature with its status, what tested it, and whether it ran on a device |
+| [docs/FEATURE_MATRIX.md](docs/FEATURE_MATRIX.md) | The narrative version, with per-feature rationale |
 | [docs/DEMO.md](docs/DEMO.md) | The competition demo: setup, reset, the beats, expected questions |
 | [docs/LIVE_TRANSCRIPTION_DECISION.md](docs/LIVE_TRANSCRIPTION_DECISION.md) | Why there is no live transcription, and what would reverse that |
 | [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md) | Lectures, storage, upload, extraction (delivered) |
@@ -115,7 +123,7 @@ Written to be checkable. Every "implemented" row below has a command that demons
 | The interactive UI actually works after hydration | `pnpm verify:ui <url>` — 25 checks in a real browser |
 | The Expo app compiles and bundles | `cd apps/mobile && pnpm exec tsc --noEmit && pnpm exec expo export --platform android` |
 
-272 TypeScript tests, 55 Python tests, a clean typecheck and a clean production build.
+275 TypeScript tests, 55 Python tests, a clean typecheck and a clean production build.
 
 Feature-by-feature detail, including what is *not* built: **[docs/FEATURE_MATRIX.md](docs/FEATURE_MATRIX.md)**.
 

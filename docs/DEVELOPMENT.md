@@ -18,15 +18,26 @@ sudo apt-get install -y postgresql-16-pgvector
 ## Setup
 
 ```bash
+pnpm setup                    # does all of the below, and seeds a demo account
+pnpm dev                      # http://localhost:3000
+```
+
+Or, by hand:
+
+```bash
 pnpm install
 cp .env.example .env          # then edit it
 
 createdb sanad_dev
 createdb sanad_test
 
+pnpm check:db                 # confirms the connection and pgvector
 pnpm db:migrate               # applies migrations to DATABASE_URL
 pnpm dev                      # http://localhost:3000
 ```
+
+No local PostgreSQL? `pnpm setup:docker` starts `pgvector/pgvector:pg16` in one
+container and continues. It is the only container, and there is nothing paid in it.
 
 **One `.env` at the repository root serves every package.** Tools run from
 different working directories — drizzle-kit from `packages/db`, vitest from the
@@ -54,6 +65,12 @@ Phase 2+ ones that are listed but unused, so the shape is known in advance.
 | `pnpm check:course-agnostic` | Fail if a seeded subject term leaked into code |
 | `pnpm verify:isolation <url>` | Probe cross-student isolation over HTTP against a running server |
 | `pnpm verify:ui <url>` | Drive the real UI in Chromium — the only check that runs client components |
+| `pnpm setup` | Clean checkout → installed, configured, migrated, seeded |
+| `pnpm setup:docker` | The same, starting PostgreSQL in a container first |
+| `pnpm check:db` | Is PostgreSQL reachable, and does it have pgvector? |
+| `pnpm demo:reset` | Rebuild and reseed the demo database (~30s) |
+| `pnpm verify:all` | Everything checkable without a phone, in one run |
+| `pnpm mobile` | Expo dev server |
 
 ## The mobile app
 
