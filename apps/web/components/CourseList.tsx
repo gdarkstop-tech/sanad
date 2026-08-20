@@ -10,6 +10,7 @@ export interface CourseSummary {
   code: string | null;
   primaryLanguage: string;
   isOwner: boolean;
+  archivedAt: string | null;
 }
 
 /**
@@ -20,6 +21,10 @@ export function CourseList({ courses }: { courses: CourseSummary[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+
+  const active = courses.filter((course) => !course.archivedAt);
+  const archived = courses.filter((course) => course.archivedAt);
 
   async function createCourse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,6 +65,54 @@ export function CourseList({ courses }: { courses: CourseSummary[] }) {
     }
   }
 
+  /** Archiving is reversible and keeps everything inside. Deleting is neither. */
+  async function setArchived(id: string, archived: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/v1/courses/${id}/archive`, { method: 'POST', json: { archived } });
+      router.refresh();
+    } catch (caught) {
+      setError(messageFor(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function card(course: CourseSummary) {
+    return (
+      <article key={course.id} className="card">
+        <h3 style={{ marginBlock: '0 0.25rem' }}>
+          <a href={`/courses/${course.id}`}>{course.title}</a>
+        </h3>
+        <p className="muted">
+          {course.code ? `${course.code} · ` : ''}
+          {course.primaryLanguage}
+        </p>
+        {course.isOwner ? (
+          <div className="row" style={{ marginBlockStart: '0.75rem' }}>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => setArchived(course.id, !course.archivedAt)}
+            >
+              {course.archivedAt ? 'Restore' : 'Archive'}
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => remove(course.id)}
+            >
+              Delete
+            </button>
+          </div>
+        ) : null}
+      </article>
+    );
+  }
+
   return (
     <>
       <section className="card" style={{ marginBlockEnd: '1.5rem' }}>
@@ -93,35 +146,35 @@ export function CourseList({ courses }: { courses: CourseSummary[] }) {
       </section>
 
       <h2>Your courses</h2>
-      {courses.length === 0 ? (
+      {active.length === 0 ? (
         <p className="muted">No courses yet. Add your first one above.</p>
       ) : (
-        <div className="grid">
-          {courses.map((course) => (
-            <article key={course.id} className="card">
-              <h2 style={{ marginBlockEnd: '0.25rem' }}>
-                <a href={`/courses/${course.id}`}>{course.title}</a>
-              </h2>
-              <p className="muted">
-                {course.code ? `${course.code} · ` : ''}
-                {course.primaryLanguage}
-              </p>
-              {course.isOwner ? (
-                <div className="row" style={{ marginBlockStart: '0.75rem' }}>
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() => remove(course.id)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              ) : null}
-            </article>
-          ))}
-        </div>
+        <div className="grid">{active.map(card)}</div>
       )}
+
+      {archived.length > 0 ? (
+        <>
+          <div className="row" style={{ marginBlockStart: '1.5rem' }}>
+            <h2 style={{ margin: 0 }}>Archived</h2>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setShowArchived((shown) => !shown)}
+            >
+              {showArchived ? 'Hide' : `Show ${archived.length}`}
+            </button>
+          </div>
+          {showArchived ? (
+            <>
+              <p className="muted">
+                Archived courses keep every lecture, transcript and answer. Restoring one
+                puts it back exactly as it was.
+              </p>
+              <div className="grid">{archived.map(card)}</div>
+            </>
+          ) : null}
+        </>
+      ) : null}
     </>
   );
 }

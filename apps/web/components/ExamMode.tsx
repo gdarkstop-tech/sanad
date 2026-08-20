@@ -28,11 +28,34 @@ interface ExamPack {
 }
 
 /** Exam Mode: everything generated from this course's own content, each item sourced. */
-export function ExamMode({ courseId }: { courseId: string }) {
+/**
+ * The three MVP languages. Choosing one is honest about what it can deliver:
+ * Sanad extracts study content from the material rather than writing it, and a
+ * translated quotation is no longer a quotation, so anything other than the
+ * language of the lecture says so instead of silently showing the original.
+ */
+const LANGUAGES = [
+  { code: 'ar', label: 'العربية', english: 'Arabic' },
+  { code: 'en', label: 'English', english: 'English' },
+  { code: 'zh', label: '中文', english: 'Chinese' },
+];
+
+export function ExamMode({
+  courseId,
+  courseLanguage,
+}: {
+  courseId: string;
+  courseLanguage: string;
+}) {
   const [pack, setPack] = useState<ExamPack | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [language, setLanguage] = useState(courseLanguage);
+
+  const target = LANGUAGES.find((l) => l.code === language);
+  const source = LANGUAGES.find((l) => l.code === courseLanguage);
+  const untranslated = language !== courseLanguage;
 
   async function generate() {
     setBusy(true);
@@ -57,9 +80,34 @@ export function ExamMode({ courseId }: { courseId: string }) {
         Builds a study pack from this course’s own lectures and materials. Every item
         shows where it came from.
       </p>
-      <button type="button" onClick={generate} disabled={busy}>
-        {busy ? 'Preparing…' : 'Prepare me for the exam'}
-      </button>
+      <div className="row" style={{ alignItems: 'flex-end' }}>
+        <button type="button" onClick={generate} disabled={busy}>
+          {busy ? 'Preparing…' : 'Prepare me for the exam'}
+        </button>
+        <div className="field">
+          <label htmlFor="study-language">Study in</label>
+          <select
+            id="study-language"
+            value={language}
+            onChange={(event) => setLanguage(event.target.value)}
+          >
+            {LANGUAGES.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {untranslated ? (
+        <p className="muted notice" role="status">
+          Sanad cannot translate study content into {target?.english ?? language} yet, so
+          this stays in {source?.english ?? courseLanguage} — the language the lecture was
+          taught in. Everything below is quoted from your own material, and translating a
+          quotation would break the link between a sentence and the moment it came from.
+        </p>
+      ) : null}
 
       {error ? <p className="error" role="alert">{error}</p> : null}
 

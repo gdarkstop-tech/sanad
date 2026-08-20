@@ -241,17 +241,24 @@ async function main(): Promise<void> {
   const examAt = new Date(Date.now() + 4 * 86_400_000);
   await addExamDate(db, subject, { offeringId: cs.id, title: 'Midterm', examAt });
 
-  await setAvailability(
-    db,
-    subject,
-    [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
-      weekday,
-      startTime: '18:00',
-      endTime: '22:00',
-      kind: 'study' as const,
-      isAvailable: true,
-    })),
-  );
+  // A realistic week, not seven identical free evenings. The point of the coach
+  // is that it plans *around* things, and a schedule with nothing to work
+  // around cannot show that. Sunday is left entirely free of study windows so
+  // the demo has a visible rest day.
+  //   Mon  university + work      Tue  free
+  //   Wed  gym                    Thu  university
+  //   Fri  gym                    Sat  free       Sun  rest
+  await setAvailability(db, subject, [
+    { weekday: 1, startTime: '09:00', endTime: '15:00', kind: 'class', isAvailable: false },
+    { weekday: 1, startTime: '16:00', endTime: '21:00', kind: 'work', isAvailable: false },
+    { weekday: 2, startTime: '14:00', endTime: '22:00', kind: 'study', isAvailable: true },
+    { weekday: 3, startTime: '18:00', endTime: '20:00', kind: 'gym', isAvailable: false },
+    { weekday: 3, startTime: '20:00', endTime: '23:00', kind: 'study', isAvailable: true },
+    { weekday: 4, startTime: '09:00', endTime: '15:00', kind: 'class', isAvailable: false },
+    { weekday: 4, startTime: '17:00', endTime: '22:00', kind: 'study', isAvailable: true },
+    { weekday: 5, startTime: '18:00', endTime: '20:00', kind: 'gym', isAvailable: false },
+    { weekday: 6, startTime: '10:00', endTime: '20:00', kind: 'study', isAvailable: true },
+  ]);
   const plan = await generatePlan(db, subject);
 
   console.log(`\nExam in 4 days · ${plan.sessions.length} study sessions planned`);

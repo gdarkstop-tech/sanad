@@ -1,9 +1,8 @@
 import { redirect } from 'next/navigation';
 import { listCourses } from '@sanad/core';
 import { db } from '@sanad/db';
+import { AppNav } from '@/components/AppNav';
 import { CourseList } from '@/components/CourseList';
-import { SignOutButton } from '@/components/SignOutButton';
-import { StudyCoach } from '@/components/StudyCoach';
 import { currentUser, subjectOf } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -12,25 +11,19 @@ export default async function DashboardPage() {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
 
-  const courses = await listCourses(db(), subjectOf(user));
+  // Archived courses come down too, so the list can offer to show them without
+  // a second request. They are filtered out of the active grid client-side.
+  const courses = await listCourses(db(), subjectOf(user), { includeArchived: true });
 
   return (
     <main className="shell">
-      <header className="topbar">
-        <span className="brand">Sanad</span>
-        <div className="row">
-          <span className="muted">{user.fullName}</span>
-          <SignOutButton />
-        </div>
-      </header>
+      <AppNav name={user.fullName} current="/dashboard" />
 
       <h1>Your courses</h1>
       <p className="lede">
-        Phase 1 foundation: accounts and courses. Lectures, materials, and search
-        arrive in later phases.
+        Record a lecture, upload the slides, then search it, question it, and revise
+        from it. Every answer points back to the moment it came from.
       </p>
-
-      <StudyCoach />
 
       <CourseList
         courses={courses.map((c) => ({
@@ -39,6 +32,7 @@ export default async function DashboardPage() {
           code: c.code,
           primaryLanguage: c.primaryLanguage,
           isOwner: c.isOwner,
+          archivedAt: c.archivedAt ? c.archivedAt.toISOString() : null,
         }))}
       />
     </main>

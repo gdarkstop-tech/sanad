@@ -19,14 +19,6 @@ interface Plan {
   sessions: Session[];
 }
 
-const WEEKDAY_EVENINGS = [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
-  weekday,
-  startTime: '18:00',
-  endTime: '22:00',
-  kind: 'study' as const,
-  isAvailable: true,
-}));
-
 function when(iso: string): string {
   const date = new Date(iso);
   return date.toLocaleString(undefined, {
@@ -59,12 +51,8 @@ export function StudyCoach() {
     setBusy(true);
     setError(null);
     try {
-      // Sensible default availability so the coach is usable immediately;
-      // the student can refine it later.
-      await api('/api/v1/me/availability', {
-        method: 'PUT',
-        json: { windows: WEEKDAY_EVENINGS },
-      });
+      // The week comes from what the student declared above. Inventing a
+      // default here would produce a plan over hours they never said they had.
       const data = await api<{ plan: Plan }>('/api/v1/me/study-plan', { method: 'POST' });
       setPlan(data.plan);
     } catch (caught) {

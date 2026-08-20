@@ -12,6 +12,7 @@ export interface LectureRow {
   status: string;
   segmentCount: number;
   hasRecording: boolean;
+  folder: string | null;
 }
 
 export interface MaterialRow {
@@ -21,6 +22,7 @@ export interface MaterialRow {
   pageCount: number | null;
   processingStatus: string;
   processingError: string | null;
+  folder: string | null;
 }
 
 /** Lecture archive + material upload for one course. */
@@ -60,15 +62,40 @@ export function CourseWorkspace({
     if (!settling) setChecks(0);
   }, [settling]);
 
+  /**
+   * Folders are a heading in a list, not a filesystem — so grouping happens
+   * here rather than in a tree component. Named folders sort alphabetically and
+   * ungrouped lectures fall to the bottom, where a student expects them.
+   */
+  const folderNames = [
+    ...new Set(
+      [...lectures.map((l) => l.folder), ...materials.map((m) => m.folder)].filter(
+        (name): name is string => Boolean(name),
+      ),
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
+  const groupedLectures = [
+    ...folderNames
+      .map((name) => ({ name, items: lectures.filter((l) => l.folder === name) }))
+      .filter((group) => group.items.length > 0),
+    { name: null as string | null, items: lectures.filter((l) => !l.folder) },
+  ].filter((group) => group.items.length > 0);
+
   async function addLecture(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    const title = String(new FormData(form).get('title') ?? '').trim();
+    const data = new FormData(form);
+    const title = String(data.get('title') ?? '').trim();
     if (!title) return;
+    const folder = String(data.get('folder') ?? '').trim();
     setBusy(true);
     setError(null);
     try {
-      await api(`/api/v1/courses/${courseId}/lectures`, { method: 'POST', json: { title } });
+      await api(`/api/v1/courses/${courseId}/lectures`, {
+        method: 'POST',
+        json: { title, folder: folder || null },
+      });
       form.reset();
       router.refresh();
     } catch (caught) {
@@ -107,6 +134,21 @@ export function CourseWorkspace({
             <label htmlFor="lecture-title">Lecture title</label>
             <input id="lecture-title" name="title" required maxLength={200} />
           </div>
+          <div className="field">
+            <label htmlFor="lecture-folder">Folder (optional)</label>
+            <input
+              id="lecture-folder"
+              name="folder"
+              maxLength={80}
+              list="known-folders"
+              placeholder="Week 3, Revision, Midterm…"
+            />
+            <datalist id="known-folders">
+              {folderNames.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+          </div>
           <button type="submit" disabled={busy}>{busy ? 'Creating…' : 'Create lecture'}</button>
         </form>
       </section>
@@ -123,23 +165,34 @@ export function CourseWorkspace({
       {lectures.length === 0 ? (
         <p className="muted">No lectures yet. Create one, then upload its recording.</p>
       ) : (
-        <div className="grid">
-          {lectures.map((lecture) => (
-            <article key={lecture.id} className="card">
-              <h3 style={{ margin: 0 }}>
-                <Link href={`/lectures/${lecture.id}`}>{lecture.title}</Link>
+        groupedLectures.map((group) => (
+          <div key={group.name ?? '__ungrouped'}>
+            {group.name ? (
+              <h3 className="folder-heading">
+                {group.name} <span className="muted">· {group.items.length}</span>
               </h3>
-              <p className="muted" style={{ margin: '0.35rem 0 0' }}>
-                <span className={`pill pill-${lecture.status}`}>{lecture.status}</span>
-                {lecture.segmentCount > 0
-                  ? ` · transcript ready (${lecture.segmentCount} segments)`
-                  : lecture.hasRecording
-                    ? ' · recording uploaded'
-                    : ' · no recording yet'}
-              </p>
-            </article>
-          ))}
-        </div>
+            ) : groupedLectures.length > 1 ? (
+              <h3 className="folder-heading muted">Not in a folder</h3>
+            ) : null}
+            <div className="grid">
+              {group.items.map((lecture) => (
+                <article key={lecture.id} className="card">
+                  <h3 style={{ margin: 0 }}>
+                    <Link href={`/lectures/${lecture.id}`}>{lecture.title}</Link>
+                  </h3>
+                  <p className="muted" style={{ margin: '0.35rem 0 0' }}>
+                    <span className={`pill pill-${lecture.status}`}>{lecture.status}</span>
+                    {lecture.segmentCount > 0
+                      ? ` · transcript ready (${lecture.segmentCount} segments)`
+                      : lecture.hasRecording
+                        ? ' · recording uploaded'
+                        : ' · no recording yet'}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        ))
       )}
 
       <section className="card" style={{ marginBlock: '1.5rem' }}>
@@ -151,6 +204,16 @@ export function CourseWorkspace({
           <div className="field">
             <label htmlFor="file">File</label>
             <input id="file" name="file" type="file" required />
+          </div>
+          <div className="field">
+            <label htmlFor="material-folder">Folder (optional)</label>
+            <input
+              id="material-folder"
+              name="folder"
+              maxLength={80}
+              list="known-folders"
+              placeholder="Week 3, Revision…"
+            />
           </div>
           <div className="field">
             <label htmlFor="lectureId">Attach to lecture (optional)</label>
@@ -176,6 +239,7 @@ export function CourseWorkspace({
               <span className="muted">
                 {' '}· {material.type}
                 {material.pageCount ? ` · ${material.pageCount} pages` : ''}
+                {material.folder ? ` · ${material.folder}` : ''}
               </span>
               <div>
                 <span className={`pill pill-${material.processingStatus}`}>

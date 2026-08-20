@@ -137,3 +137,36 @@ export function Section({ title, children }: { title: string; children: ReactNod
     </View>
   );
 }
+
+/**
+ * A feature that is designed but not built.
+ *
+ * Inert on purpose: no request, no spinner, no control that looks like it would
+ * work under different circumstances. A preview that behaves like a broken
+ * feature is worse than no preview.
+ */
+export function ComingSoon({
+  title,
+  promise,
+  detail,
+}: {
+  title: string;
+  promise: string;
+  detail?: string;
+}) {
+  return (
+    <View
+      style={[
+        s.card,
+        { borderStyle: 'dashed', borderColor: theme.inkFaint, backgroundColor: 'transparent' },
+      ]}
+    >
+      <View style={s.spread}>
+        <Text style={[s.h2, { marginBottom: 0, flex: 1 }]}>{title}</Text>
+        <Pill text="coming soon" />
+      </View>
+      <Text style={[s.body, { marginTop: 8 }]}>{promise}</Text>
+      {detail ? <Text style={[s.muted, { marginTop: 6 }]}>{detail}</Text> : null}
+    </View>
+  );
+}

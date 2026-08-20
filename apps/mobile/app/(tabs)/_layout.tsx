@@ -2,7 +2,13 @@ import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
 import { theme } from '@/components/ui';
 
-/** Three tabs, because the student's day has three modes: courses, uploads, plan. */
+/**
+ * Courses, recordings, plan, community, profile.
+ *
+ * Community is a preview and is labelled as one inside the screen — it is in
+ * the tab bar because the roadmap is part of the product story, not because it
+ * works.
+ */
 export default function TabsLayout() {
   return (
     <Tabs
@@ -32,8 +38,22 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="coach"
         options={{
-          title: 'Coach',
+          title: 'Plan',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>◷</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="community"
+        options={{
+          title: 'Community',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>◍</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>◉</Text>,
         }}
       />
     </Tabs>
