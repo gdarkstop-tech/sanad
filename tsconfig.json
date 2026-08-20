@@ -23,6 +23,7 @@
       "@sanad/core": ["packages/core/src/index.ts"],
       "@sanad/core/*": ["packages/core/src/*"],
       "@sanad/contracts": ["packages/contracts/src/index.ts"],
+      "@sanad/contracts/roadmap": ["packages/contracts/src/roadmap.ts"],
       "@sanad/offline": ["packages/offline/src/index.ts"],
       "@sanad/offline/testing": ["packages/offline/src/testing.ts"]
     }

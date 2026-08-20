@@ -2,7 +2,8 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { apiGet, apiSend } from '@/lib/api';
-import { Button, Empty, ErrorNote, Loading, Pill, s, theme } from '@/components/ui';
+import { roadmapFor } from '@sanad/contracts/roadmap';
+import { Button, ComingSoon, Empty, ErrorNote, Loading, Pill, s, theme } from '@/components/ui';
 
 /**
  * Study coach: the week the student actually has, and the plan built from it.
@@ -34,10 +35,17 @@ interface Window {
 }
 interface ExamDate {
   id: string;
+  offeringId: string;
   courseTitle: string;
   title: string;
   examAt: string;
 }
+interface CourseOption {
+  id: string;
+  title: string;
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -55,6 +63,10 @@ export default function Coach() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [windows, setWindows] = useState<Window[] | null>(null);
   const [exams, setExams] = useState<ExamDate[]>([]);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
+  const [examCourse, setExamCourse] = useState<string | null>(null);
+  const [examTitle, setExamTitle] = useState('');
+  const [examDate, setExamDate] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,9 +81,12 @@ export default function Coach() {
       apiGet<{ plan: Plan | null }>('/api/v1/me/study-plan'),
       apiGet<{ windows: Window[] }>('/api/v1/me/availability'),
       apiGet<{ exams: ExamDate[] }>('/api/v1/me/exam-dates'),
+      apiGet<{ courses: CourseOption[] }>('/api/v1/courses'),
     ])
-      .then(([planned, week, examList]) => {
+      .then(([planned, week, examList, courseList]) => {
         setPlan(planned.plan);
+        setCourses(courseList.courses);
+        setExamCourse((current) => current ?? courseList.courses[0]?.id ?? null);
         setWindows(
           week.windows.map((w) => ({
             ...w,
@@ -132,6 +147,43 @@ export default function Coach() {
         isAvailable: template?.available ?? false,
       },
     ]);
+  }
+
+  async function addExam() {
+    if (!examCourse) {
+      setError('Create a course first — an exam belongs to one.');
+      return;
+    }
+    if (!DATE.test(examDate)) {
+      setError('The exam date needs to look like 2026-06-14.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await apiSend(`/api/v1/courses/${examCourse}/exam-dates`, 'POST', {
+        title: examTitle.trim() || 'Exam',
+        // Midday, so a timezone shift cannot move the exam to the day before.
+        examAt: new Date(`${examDate}T12:00:00`).toISOString(),
+      });
+      setExamTitle('');
+      setExamDate('');
+      load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not add that exam date.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeExam(exam: ExamDate) {
+    setError(null);
+    try {
+      await apiSend(`/api/v1/courses/${exam.offeringId}/exam-dates/${exam.id}`, 'DELETE');
+      load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not remove that exam date.');
+    }
   }
 
   async function build() {
@@ -264,31 +316,84 @@ export default function Coach() {
         <Button label="Add to my week" variant="secondary" onPress={add} busy={busy} />
       </View>
 
-      {exams.length > 0 ? (
-        <>
-          <Text style={s.h2}>Exams ahead</Text>
-          <View style={s.card}>
-            {exams.map((exam) => (
-              <View key={exam.id} style={[s.spread, { marginBottom: 6 }]}>
-                <Text style={[s.body, { flex: 1 }]}>
-                  {exam.courseTitle} · {exam.title}
-                </Text>
-                <Text style={s.timestamp}>
-                  {new Date(exam.examAt).toLocaleDateString(undefined, {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </Text>
+      <Text style={s.h2}>Exams ahead</Text>
+      <View style={s.card}>
+        {exams.length === 0 ? (
+          <Text style={[s.muted, { marginBottom: 10 }]}>
+            None yet. The coach works backwards from these — without one, every topic has
+            the same urgency.
+          </Text>
+        ) : (
+          exams.map((exam) => (
+            <View key={exam.id} style={[s.spread, { marginBottom: 8 }]}>
+              <Text style={[s.body, { flex: 1 }]}>
+                {exam.courseTitle} · {exam.title}
+              </Text>
+              <Text style={s.timestamp}>
+                {new Date(exam.examAt).toLocaleDateString(undefined, {
+                  day: 'numeric',
+                  month: 'short',
+                })}
+              </Text>
+              <Pressable onPress={() => removeExam(exam)} hitSlop={10}>
+                <Text style={{ color: theme.inkFaint, fontSize: 18 }}>×</Text>
+              </Pressable>
+            </View>
+          ))
+        )}
+
+        {courses.length === 0 ? null : (
+          <>
+            <Text style={s.label}>Course</Text>
+            <View style={[s.row, { flexWrap: 'wrap', marginBottom: 10 }]}>
+              {courses.map((option) => (
+                <Pressable key={option.id} onPress={() => setExamCourse(option.id)}>
+                  <View
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: examCourse === option.id ? theme.accent : theme.line,
+                    }}
+                  >
+                    <Text
+                      style={{ color: examCourse === option.id ? theme.accent : theme.inkSoft }}
+                    >
+                      {option.title}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={s.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.label}>What</Text>
+                <TextInput
+                  style={s.input}
+                  value={examTitle}
+                  onChangeText={setExamTitle}
+                  placeholder="Midterm"
+                  placeholderTextColor={theme.inkFaint}
+                />
               </View>
-            ))}
-          </View>
-        </>
-      ) : (
-        <Text style={[s.muted, { marginBottom: 12 }]}>
-          No exam dates yet. Add one from a course on the web app — the coach works
-          backwards from them.
-        </Text>
-      )}
+              <View style={{ flex: 1 }}>
+                <Text style={s.label}>When</Text>
+                <TextInput
+                  style={s.input}
+                  value={examDate}
+                  onChangeText={setExamDate}
+                  placeholder="2026-06-14"
+                  placeholderTextColor={theme.inkFaint}
+                  keyboardType="numbers-and-punctuation"
+                />
+              </View>
+            </View>
+            <Button label="Add exam date" variant="secondary" onPress={addExam} busy={busy} />
+          </>
+        )}
+      </View>
 
       <Button
         label={plan ? 'Re-plan my week' : 'Plan my week'}
@@ -329,6 +434,11 @@ export default function Coach() {
           hint="Declare your week above, add an exam date, then plan."
         />
       )}
+      <Text style={[s.h2, { marginTop: 20 }]}>On the roadmap</Text>
+      {roadmapFor('plan').map((item) => (
+        <ComingSoon key={item.id} title={item.title} promise={item.promise} detail={item.detail} />
+      ))}
+
       <View style={{ height: 40 }} />
     </ScrollView>
   );

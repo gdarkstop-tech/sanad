@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { AppNav } from '@/components/AppNav';
-import { ComingSoon } from '@/components/ComingSoon';
+import { ComingSoon, RoadmapGrid } from '@/components/ComingSoon';
 import { currentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -83,6 +83,9 @@ export default async function CommunityPage() {
         promise="Post a question about a lecture, answer someone else’s, and share what you worked out — with your course, your faculty, or your whole university."
         detail="Not built yet. A social layer means moderation, abuse handling and a privacy review before it goes anywhere near student work, and that is not a week of work. Everything below is a static preview written into the page: nothing is loaded, nothing is stored, and no button does anything."
       />
+
+      <h2 style={{ marginBlockStart: '1.6rem' }}>Also planned here</h2>
+      <RoadmapGrid surface="community" />
 
       <h2 style={{ marginBlockStart: '1.6rem' }}>What it will look like</h2>
       <p className="muted" aria-hidden="true">Preview content — not real posts.</p>

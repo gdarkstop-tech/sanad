@@ -117,3 +117,11 @@ export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
  */
 export const CSRF_COOKIE_NAME = 'sanad_csrf';
 export const CSRF_HEADER_NAME = 'x-csrf-token';
+
+/**
+ * The roadmap is also exported here for the web app's convenience, but the
+ * mobile app imports `@sanad/contracts/roadmap` directly: this barrel pulls in
+ * zod, which is 170 KB of a phone bundle that a list of feature descriptions
+ * has no use for.
+ */
+export * from './roadmap';

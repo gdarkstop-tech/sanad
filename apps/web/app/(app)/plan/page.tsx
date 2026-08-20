@@ -22,7 +22,7 @@ export default async function PlanPage() {
       <PlanWorkspace />
 
       <h2 style={{ marginBlockStart: '2rem' }}>On the roadmap</h2>
-      <RoadmapGrid />
+      <RoadmapGrid surface="plan" />
     </main>
   );
 }

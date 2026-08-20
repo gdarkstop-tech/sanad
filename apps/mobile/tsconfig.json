@@ -5,7 +5,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
-      "@sanad/offline": ["../../packages/offline/src/index.ts"]
+      "@sanad/offline": ["../../packages/offline/src/index.ts"],
+      "@sanad/contracts/roadmap": ["../../packages/contracts/src/roadmap.ts"],
+      "@sanad/contracts": ["../../packages/contracts/src/index.ts"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]

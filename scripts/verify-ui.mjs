@@ -1,4 +1,44 @@
-import { chromium } from 'playwright-core';
+import { existsSync } from 'node:fs';
+
+/**
+ * Resolves a Chromium build without downloading one.
+ *
+ * playwright-core ships no browser on purpose, so this looks where one is
+ * likely to already be — a Playwright cache, or the system Chrome/Chromium —
+ * and says how to get one rather than failing with a module error.
+ */
+function findChrome() {
+  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
+  const roots = [
+    process.env.PLAYWRIGHT_BROWSERS_PATH,
+    `${process.env.HOME ?? ''}/.cache/ms-playwright`,
+  ].filter(Boolean);
+  for (const root of roots) {
+    for (const name of ['chrome-linux/chrome', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium']) {
+      for (const dir of ['chromium', 'chromium-1194', 'chromium-1187', 'chromium-1180']) {
+        const candidate = `${root}/${dir}/${name}`;
+        if (existsSync(candidate)) return candidate;
+      }
+    }
+  }
+  for (const system of [
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  ]) {
+    if (existsSync(system)) return system;
+  }
+  return null;
+}
+
+let chromium;
+try {
+  ({ chromium } = await import('playwright-core'));
+} catch {
+  console.error('playwright-core is not installed. Run `pnpm install`, then try again.');
+  process.exit(2);
+}
 
 /**
  * Drives the real UI in a real browser.
@@ -18,8 +58,14 @@ import { chromium } from 'playwright-core';
  */
 
 const BASE = process.argv[2] ?? process.env.SANAD_URL ?? 'http://localhost:3000';
-const CHROME =
-  process.env.CHROME_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const CHROME = findChrome();
+if (!CHROME) {
+  console.error(
+    'No Chromium found. Set CHROME_PATH, or install one with `npx playwright install chromium`.\n' +
+      'This check is optional — the rest of the suite does not need a browser.',
+  );
+  process.exit(2);
+}
 const results = [];
 const fail = (name, detail) => results.push({ ok: false, name, detail });
 const pass = (name, detail = '') => results.push({ ok: true, name, detail });
@@ -121,9 +167,51 @@ notice.includes('cannot translate')
 const examCard = await page.locator('section:has(h2:text("Exam dates"))').innerText();
 examCard.includes('Midterm') ? pass('exam date is listed') : fail('exam date listed', examCard.slice(0, 200));
 
-// YouTube coming-soon on the course page.
+// The roadmap on the course page, from the shared list.
 const body = await page.locator('body').innerText();
-body.includes('YouTube import') ? pass('YouTube import shown as coming soon') : fail('YouTube coming soon');
+for (const item of ['YouTube Import', 'AI Voice Tutor', 'Advanced OCR', 'Smart Translation']) {
+  body.includes(item) ? pass(`roadmap: ${item}`) : fail(`roadmap: ${item}`);
+}
+const soonPills = await page.locator('.pill-soon').count();
+soonPills > 0 ? pass(`${soonPills} coming-soon cards labelled`) : fail('coming-soon cards labelled');
+
+// Course settings: rename must be reachable and must actually persist.
+await page.click('button:has-text("Edit course")');
+await page.waitForSelector('#course-title', { timeout: 10000 });
+const originalTitle = await page.inputValue('#course-title');
+await page.fill('#course-title', `${originalTitle} (renamed)`);
+await page.click('button:has-text("Save changes")');
+await page.waitForSelector('text=Saved.', { timeout: 10000 });
+await page.reload({ waitUntil: 'networkidle' });
+const renamed = await page.locator('h1').innerText();
+renamed.includes('(renamed)') ? pass('course rename persists') : fail('course rename persists', renamed);
+// Put it back, so the check leaves the demo data as it found it.
+await page.click('button:has-text("Edit course")');
+await page.fill('#course-title', originalTitle);
+await page.click('button:has-text("Save changes")');
+await page.waitForSelector('text=Saved.', { timeout: 10000 });
+pass('course rename reverted');
+
+// A transcript produced by the fixture must say so.
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' });
+await page.click('a:has-text("Data Structures")');
+await page.waitForSelector('h1', { timeout: 10000 });
+// Navigate from the lecture archive, not the "At a glance" card — the card's
+// link and the archive's link are different elements.
+await page.click('article.card h3 a >> nth=0');
+await page.waitForURL('**/lectures/**', { timeout: 15000 });
+await page.waitForSelector('h2:has-text("Transcript")', { timeout: 15000 });
+const lecture = await page.locator('body').innerText();
+lecture.includes('demo transcript, not speech recognition')
+  ? pass('synthetic transcript is disclosed on the lecture page')
+  : fail('synthetic transcript is disclosed on the lecture page', lecture.slice(0, 300));
+
+// And the compact badge in the archive listing.
+await page.goBack({ waitUntil: 'networkidle' });
+const badges = await page.locator('.pill-synthetic').count();
+badges > 0
+  ? pass(`synthetic badge on ${badges} lecture(s) in the archive`)
+  : fail('synthetic badge in the archive');
 
 await browser.close();
 

@@ -1,4 +1,5 @@
 import { ScrollView, Text, View } from 'react-native';
+import { roadmapFor } from '@sanad/contracts/roadmap';
 import { ComingSoon, Pill, s, theme } from '@/components/ui';
 
 /**
@@ -61,6 +62,16 @@ export default function CommunityScreen() {
         promise="Post a question about a lecture, answer someone else’s, and share what you worked out."
         detail="Not built yet. A social layer means moderation, abuse handling and a privacy review before it goes near student work. Everything below is a static preview written into the app — nothing is loaded and nothing is stored."
       />
+
+      <Text style={[s.h2, { marginTop: 12 }]}>Also planned here</Text>
+      {roadmapFor('community').map((item) => (
+        <ComingSoon
+          key={item.id}
+          title={item.title}
+          promise={item.promise}
+          detail={item.detail}
+        />
+      ))}
 
       <Text style={[s.h2, { marginTop: 12 }]}>What it will look like</Text>
       <Text style={[s.muted, { marginBottom: 10 }]}>Preview content — not real posts.</Text>

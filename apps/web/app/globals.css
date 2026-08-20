@@ -229,3 +229,5 @@ ul.sources li { border-inline-start: 2px solid var(--line); padding-inline-start
   font-size: 0.92rem;
   line-height: 1.55;
 }
+.rule { border: none; border-block-start: 1px solid var(--line); margin-block: 1rem; }
+button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }

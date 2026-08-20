@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { roadmapFor } from '@sanad/contracts';
 
 /**
  * A feature that is designed but not built.
@@ -34,34 +35,39 @@ export function ComingSoon({
   );
 }
 
-/** The roadmap, in one place, so the demo can show the whole vision honestly. */
-export function RoadmapGrid() {
+/**
+ * The roadmap for one surface.
+ *
+ * The list is shared with the mobile app via `@sanad/contracts`, so a feature
+ * cannot read as "coming soon" in one place and be implied to work in another.
+ */
+export function RoadmapGrid({
+  surface,
+  extra,
+}: {
+  surface: Parameters<typeof roadmapFor>[0];
+  extra?: React.ReactNode;
+}) {
+  const items = roadmapFor(surface);
+  if (items.length === 0) return null;
+
   return (
     <div className="grid">
-      <ComingSoon
-        title="AI Voice Tutor"
-        promise="Ask Sanad about your lectures using your voice."
-        detail="It will answer through the same grounded retrieval as Ask Sanad — same citations, same refusal when your materials don’t cover the question. Waiting on a speech model that runs locally at no cost."
-      />
-      <ComingSoon
-        title="YouTube import"
-        promise="Add a lecture video or YouTube source and Sanad will turn it into searchable study material."
-        detail="Uploading a video file already works. Importing from a URL needs reliable audio extraction and a licence position, which is real work rather than a demo trick."
-      />
-      <ComingSoon
-        title="Full translation"
-        promise="Read any lecture in Arabic, English or Chinese."
-        detail="Transcripts already carry a language per segment. Translating them without breaking the link between a sentence and its timestamp needs a model Sanad does not yet run for free."
-      />
-      <ComingSoon
-        title="Sanad Community"
-        promise="Ask, discuss, and learn with your university community."
-        detail="A social layer needs moderation and a privacy review before it touches student work."
-      >
-        <Link href="/community" className="soon-link">
-          See the preview →
-        </Link>
-      </ComingSoon>
+      {items.map((item) => (
+        <ComingSoon
+          key={item.id}
+          title={item.title}
+          promise={item.promise}
+          detail={item.detail}
+        >
+          {item.id === 'community-feed' ? (
+            <Link href="/community" className="soon-link">
+              See the preview →
+            </Link>
+          ) : null}
+        </ComingSoon>
+      ))}
+      {extra}
     </div>
   );
 }

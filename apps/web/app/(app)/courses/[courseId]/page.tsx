@@ -3,8 +3,9 @@ import { listExamDates, listLectures, listMaterials, readCourse } from '@sanad/c
 import { db } from '@sanad/db';
 import { AppNav } from '@/components/AppNav';
 import { AskPanel } from '@/components/AskPanel';
-import { ComingSoon } from '@/components/ComingSoon';
+import { RoadmapGrid } from '@/components/ComingSoon';
 import { CourseActivity } from '@/components/CourseActivity';
+import { CourseSettings } from '@/components/CourseSettings';
 import { CourseWorkspace } from '@/components/CourseWorkspace';
 import { ExamDateForm } from '@/components/ExamDateForm';
 import { ExamMode } from '@/components/ExamMode';
@@ -65,6 +66,14 @@ export default async function CoursePage({
         <ExamMode courseId={courseId} courseLanguage={course.primaryLanguage} />
         <ExamDateForm courseId={courseId} />
 
+        <CourseSettings
+          courseId={courseId}
+          title={course.title}
+          code={course.code}
+          primaryLanguage={course.primaryLanguage}
+          archivedAt={course.archivedAt ? course.archivedAt.toISOString() : null}
+        />
+
         <CourseWorkspace
           courseId={courseId}
           lectures={lectures.map((l) => ({
@@ -88,11 +97,11 @@ export default async function CoursePage({
           }))}
         />
 
-        <ComingSoon
-          title="YouTube import"
-          promise="Add a lecture video or YouTube source and Sanad will turn it into searchable study material."
-          detail="Uploading a video file to this course already works — it is stored and transcribed like any recording. Importing from a URL needs reliable audio extraction and a licence position, so it is not here yet rather than here and fragile."
-        />
+        <section>
+          <h2>On the roadmap for this course</h2>
+          <RoadmapGrid surface="course" />
+        </section>
+
       </div>
     </main>
   );
