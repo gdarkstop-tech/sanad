@@ -1,0 +1,31 @@
+# Optional: PostgreSQL 16 with pgvector, for people who would rather not install
+# it locally. Nothing else runs in Docker — the app itself is `pnpm dev`.
+#
+#   docker compose up -d
+#   # then the default DATABASE_URL in .env.example already points here
+#
+# There is no paid service here and no cloud account. If you already have
+# PostgreSQL 16 with pgvector, skip this file entirely.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: sanad-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # Both databases the project uses. The test database is created by the
+      # init script below, because POSTGRES_DB only creates one.
+      POSTGRES_DB: sanad_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - sanad-pgdata:/var/lib/postgresql/data
+      - ./scripts/docker-init.sql:/docker-entrypoint-initdb.d/10-databases.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  sanad-pgdata:
