@@ -17,7 +17,8 @@
     "check:course-agnostic": "bash scripts/check-course-agnostic.sh",
     "test:asr": "cd benchmarks/asr && python3 -m unittest discover -p \"test_*.py\"",
     "db:seed": "tsx scripts/seed.ts",
-    "db:seed:demo": "tsx scripts/seed-demo.ts"
+    "db:seed:demo": "tsx scripts/seed-demo.ts",
+    "verify:isolation": "tsx scripts/verify-isolation.ts"
   },
   "devDependencies": {
     "@node-rs/argon2": "^2.0.2",
