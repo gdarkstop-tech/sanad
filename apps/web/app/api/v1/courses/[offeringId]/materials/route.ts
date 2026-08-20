@@ -15,6 +15,7 @@ export const GET = handler(async (_request, { params }) => {
       byteSize: m.byteSize,
       pageCount: m.pageCount,
       lectureId: m.lectureId,
+      folder: m.folder,
       processingStatus: m.processingStatus,
       processingError: m.processingError,
       createdAt: m.createdAt,
@@ -34,6 +35,7 @@ export const POST = handler(async (request, { params }) => {
   }
 
   const lectureId = form.get('lectureId');
+  const folder = form.get('folder');
   const data = Buffer.from(await file.arrayBuffer());
 
   const result = await uploadDirect(db(), subjectOf(user), {
@@ -42,6 +44,7 @@ export const POST = handler(async (request, { params }) => {
     lectureId: typeof lectureId === 'string' && lectureId ? lectureId : null,
     filename: file.name,
     mimeType: file.type || 'application/octet-stream',
+    folder: typeof folder === 'string' && folder ? folder : null,
     data,
   });
 

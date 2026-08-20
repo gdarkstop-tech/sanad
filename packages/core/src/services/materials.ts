@@ -1,7 +1,8 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, isNull } from 'drizzle-orm';
 import {
   academicTerms,
   courseOfferings,
+  lectures,
   materials,
   uploadSessions,
   type Database,
@@ -12,7 +13,7 @@ import type { Subject } from '../permissions';
 import { sha256, storage, storageKeyFor } from '../storage';
 import { getCourseFor } from './courses';
 import { enqueue } from './jobs';
-import { getLecture } from './lectures';
+import { getLecture, normalizeFolder } from './lectures';
 
 /**
  * Uploads, resumable and idempotent (ARCHITECTURE.md §3.10).
@@ -33,6 +34,7 @@ export interface OpenUploadInput {
   mimeType: string;
   totalBytes: number;
   checksumSha256: string;
+  folder?: string | null;
 }
 
 export interface UploadSessionView {
@@ -101,6 +103,7 @@ export async function openUpload(
         storageKey: 'pending',
         processingStatus: 'pending_upload',
         clientRef: input.clientRef,
+        folder: normalizeFolder(input.folder),
         retentionExpiresAt,
       })
       .returning();
@@ -344,6 +347,75 @@ export async function getMaterial(
   if (!row) throw Errors.notFound('Material');
   await getCourseFor(db, subject, row.offeringId, 'read');
   return row;
+}
+
+/** Renames a material or moves it between folders. */
+export async function updateMaterial(
+  db: Database,
+  subject: Subject,
+  materialId: string,
+  patch: { title?: string; folder?: string | null },
+): Promise<typeof materials.$inferSelect> {
+  const material = await getMaterial(db, subject, materialId);
+  await getCourseFor(db, subject, material.offeringId, 'add_content');
+
+  const changes: Partial<typeof materials.$inferInsert> = { updatedAt: new Date() };
+  if (patch.title !== undefined) {
+    const title = patch.title.trim();
+    if (title.length === 0) throw Errors.validation('A material needs a title.');
+    changes.title = title.slice(0, 200);
+  }
+  if (patch.folder !== undefined) changes.folder = normalizeFolder(patch.folder);
+
+  const [updated] = await db
+    .update(materials)
+    .set(changes)
+    .where(eq(materials.id, material.id))
+    .returning();
+  if (!updated) throw Errors.notFound('Material');
+  return updated;
+}
+
+/**
+ * The folder labels actually in use in one course, with how much is in each.
+ *
+ * Derived from the content rather than stored as its own table: a folder that
+ * nothing is filed under is not a folder anyone needs to see, and this way
+ * there is no second list to keep in step.
+ */
+export async function listFolders(
+  db: Database,
+  subject: Subject,
+  offeringId: string,
+): Promise<Array<{ name: string; lectureCount: number; materialCount: number }>> {
+  await getCourseFor(db, subject, offeringId, 'read');
+
+  const [lectureRows, materialRows] = await Promise.all([
+    db
+      .select({ folder: lectures.folder, count: count() })
+      .from(lectures)
+      .where(and(eq(lectures.offeringId, offeringId), isNull(lectures.deletedAt)))
+      .groupBy(lectures.folder),
+    db
+      .select({ folder: materials.folder, count: count() })
+      .from(materials)
+      .where(and(eq(materials.offeringId, offeringId), isNull(materials.deletedAt)))
+      .groupBy(materials.folder),
+  ]);
+
+  const totals = new Map<string, { lectureCount: number; materialCount: number }>();
+  const bump = (folder: string | null, key: 'lectureCount' | 'materialCount', by: number) => {
+    if (!folder) return;
+    const entry = totals.get(folder) ?? { lectureCount: 0, materialCount: 0 };
+    entry[key] += by;
+    totals.set(folder, entry);
+  };
+  for (const row of lectureRows) bump(row.folder, 'lectureCount', row.count);
+  for (const row of materialRows) bump(row.folder, 'materialCount', row.count);
+
+  return [...totals.entries()]
+    .map(([name, counts]) => ({ name, ...counts }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function deleteMaterial(

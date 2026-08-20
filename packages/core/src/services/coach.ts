@@ -565,3 +565,136 @@ function startOfDay(date: Date): Date {
 function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
+
+/**
+ * The student's declared week, in the order a schedule editor renders it.
+ *
+ * The scheduler works from the same rows: available windows minus blocked ones
+ * minus dated commitments. Reading them back is what makes the plan
+ * explainable — a student who sees no Monday sessions can look at Monday and
+ * find the shift that took it.
+ */
+export async function readAvailability(
+  db: Database,
+  subject: Subject,
+): Promise<Array<typeof studyAvailability.$inferSelect>> {
+  return db
+    .select()
+    .from(studyAvailability)
+    .where(eq(studyAvailability.studentUserId, subject.userId))
+    .orderBy(asc(studyAvailability.weekday), asc(studyAvailability.startTime));
+}
+
+/** One-off commitments, upcoming first. Past ones are not shown or scheduled around. */
+export async function listCommitments(
+  db: Database,
+  subject: Subject,
+  from: Date = new Date(),
+): Promise<Array<typeof studentCommitments.$inferSelect>> {
+  return db
+    .select()
+    .from(studentCommitments)
+    .where(
+      and(
+        eq(studentCommitments.studentUserId, subject.userId),
+        gte(studentCommitments.endsAt, from),
+      ),
+    )
+    .orderBy(asc(studentCommitments.startsAt));
+}
+
+export async function addCommitment(
+  db: Database,
+  subject: Subject,
+  input: {
+    title: string;
+    kind: 'study' | 'work' | 'gym' | 'class' | 'sleep' | 'other';
+    startsAt: Date;
+    endsAt: Date;
+  },
+): Promise<typeof studentCommitments.$inferSelect> {
+  const title = input.title.trim();
+  if (title.length === 0) throw Errors.validation('A commitment needs a name.');
+  if (input.endsAt <= input.startsAt) {
+    throw Errors.validation('A commitment has to end after it starts.');
+  }
+
+  const [row] = await db
+    .insert(studentCommitments)
+    .values({
+      studentUserId: subject.userId,
+      title: title.slice(0, 200),
+      kind: input.kind,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+    })
+    .returning();
+  if (!row) throw Errors.internal();
+  return row;
+}
+
+export async function removeCommitment(
+  db: Database,
+  subject: Subject,
+  commitmentId: string,
+): Promise<void> {
+  const deleted = await db
+    .delete(studentCommitments)
+    // Scoped to the caller in the delete itself, so a guessed id removes
+    // nothing rather than removing someone else's commitment.
+    .where(
+      and(
+        eq(studentCommitments.id, commitmentId),
+        eq(studentCommitments.studentUserId, subject.userId),
+      ),
+    )
+    .returning({ id: studentCommitments.id });
+  if (deleted.length === 0) throw Errors.notFound('Commitment');
+}
+
+/** Exam dates the student has entered, for one course or all of them. */
+export async function listExamDates(
+  db: Database,
+  subject: Subject,
+  offeringId?: string,
+): Promise<Array<{ id: string; offeringId: string; courseTitle: string; title: string; examAt: Date }>> {
+  if (offeringId) {
+    const { getCourseFor } = await import('./courses');
+    await getCourseFor(db, subject, offeringId, 'read');
+  }
+
+  const rows = await db
+    .select({
+      id: courseExams.id,
+      offeringId: courseExams.offeringId,
+      courseTitle: courses.title,
+      title: courseExams.title,
+      examAt: courseExams.examAt,
+    })
+    .from(courseExams)
+    .innerJoin(courseOfferings, eq(courseOfferings.id, courseExams.offeringId))
+    .innerJoin(courses, eq(courses.id, courseOfferings.courseId))
+    .where(
+      offeringId
+        ? and(
+            eq(courseExams.studentUserId, subject.userId),
+            eq(courseExams.offeringId, offeringId),
+          )
+        : eq(courseExams.studentUserId, subject.userId),
+    )
+    .orderBy(asc(courseExams.examAt));
+
+  return rows;
+}
+
+export async function removeExamDate(
+  db: Database,
+  subject: Subject,
+  examId: string,
+): Promise<void> {
+  const deleted = await db
+    .delete(courseExams)
+    .where(and(eq(courseExams.id, examId), eq(courseExams.studentUserId, subject.userId)))
+    .returning({ id: courseExams.id });
+  if (deleted.length === 0) throw Errors.notFound('Exam date');
+}

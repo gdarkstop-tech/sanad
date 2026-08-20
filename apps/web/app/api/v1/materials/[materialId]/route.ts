@@ -1,7 +1,8 @@
-import { deleteMaterial, getMaterial } from '@sanad/core';
+import { z } from 'zod';
+import { deleteMaterial, getMaterial, updateMaterial } from '@sanad/core';
 import { db } from '@sanad/db';
 import { requireUser, subjectOf } from '@/lib/auth';
-import { handler, json } from '@/lib/http';
+import { handler, json, parseBody } from '@/lib/http';
 
 export const GET = handler(async (_request, { params }) => {
   const user = await requireUser();
@@ -19,6 +20,19 @@ export const GET = handler(async (_request, { params }) => {
       retentionExpiresAt: m.retentionExpiresAt,
     },
   });
+});
+
+const patchSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  folder: z.string().trim().max(80).nullable().optional(),
+});
+
+export const PATCH = handler(async (request, { params }) => {
+  const user = await requireUser();
+  const { materialId } = await params;
+  const patch = await parseBody(request, patchSchema);
+  const material = await updateMaterial(db(), subjectOf(user), materialId as string, patch);
+  return json({ material });
 });
 
 export const DELETE = handler(async (_request, { params }) => {

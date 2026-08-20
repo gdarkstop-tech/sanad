@@ -28,6 +28,7 @@ export interface CourseView {
   secondaryLanguages: string[];
   termLabel: string | null;
   isOwner: boolean;
+  archivedAt: Date | null;
   createdAt: Date;
 }
 
@@ -75,7 +76,18 @@ export async function createCourse(
   });
 }
 
-export async function listCourses(db: Database, subject: Subject): Promise<CourseView[]> {
+/**
+ * Lists the caller's courses.
+ *
+ * Archived courses are hidden by default rather than deleted: a student who
+ * archives last semester has not asked to lose its lectures, and `deletedAt`
+ * already means deleted.
+ */
+export async function listCourses(
+  db: Database,
+  subject: Subject,
+  options: { includeArchived?: boolean } = {},
+): Promise<CourseView[]> {
   const rows = await db
     .select({ course: courses, offering: courseOfferings })
     .from(courseOfferings)
@@ -90,12 +102,36 @@ export async function listCourses(db: Database, subject: Subject): Promise<Cours
     .where(
       and(
         isNull(courses.deletedAt),
+        options.includeArchived ? undefined : isNull(courseOfferings.archivedAt),
         or(eq(courses.ownerUserId, subject.userId), eq(courseEnrollments.userId, subject.userId)),
       ),
     )
     .orderBy(desc(courses.createdAt));
 
   return rows.map((r) => toView(r.course, r.offering, r.course.ownerUserId === subject.userId));
+}
+
+/**
+ * Archives or restores a course.
+ *
+ * Reversible on purpose, and separate from deletion: archiving is a filing
+ * decision, deletion is a destructive one, and conflating them means a student
+ * tidying up loses a semester.
+ */
+export async function setCourseArchived(
+  db: Database,
+  subject: Subject,
+  offeringId: string,
+  archived: boolean,
+): Promise<CourseView> {
+  const { course } = await getCourseFor(db, subject, offeringId, 'update');
+  const [offering] = await db
+    .update(courseOfferings)
+    .set({ archivedAt: archived ? new Date() : null })
+    .where(eq(courseOfferings.id, offeringId))
+    .returning();
+  if (!offering) throw Errors.notFound('Course');
+  return toView(course, offering, course.ownerUserId === subject.userId);
 }
 
 /**
@@ -225,6 +261,7 @@ function toView(
     secondaryLanguages: offering.secondaryLanguages,
     termLabel: offering.termLabel,
     isOwner,
+    archivedAt: offering.archivedAt,
     createdAt: course.createdAt,
   };
 }

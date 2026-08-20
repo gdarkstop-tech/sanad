@@ -1,11 +1,15 @@
 import { and, eq, gt } from 'drizzle-orm';
 import type { RegisterInput } from '@sanad/contracts';
 import {
+  academicYears,
   authIdentities,
+  departments,
+  faculties,
   instructorProfiles,
   sessions,
   studentProfiles,
   teachingAssistantProfiles,
+  universities,
   users,
   type Database,
 } from '@sanad/db';
@@ -230,4 +234,162 @@ export async function updateProfile(
     .returning();
   if (!updated) throw Errors.notFound('User');
   return toAuthenticatedUser(updated);
+}
+
+/**
+ * The student's academic identity, resolved to names rather than ids.
+ *
+ * The ids are the structured fields the rest of the system filters on; a
+ * profile screen needs the labels, and resolving them here means every caller
+ * does not repeat four joins.
+ */
+export interface StudentProfileView {
+  user: AuthenticatedUser;
+  universityId: string | null;
+  universityName: string | null;
+  facultyId: string | null;
+  facultyName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  academicYearId: string | null;
+  academicYearLabel: string | null;
+  major: string | null;
+  studentNumber: string | null;
+}
+
+export async function readProfile(
+  db: Database,
+  user: AuthenticatedUser,
+): Promise<StudentProfileView> {
+  const [row] = await db
+    .select({
+      profile: studentProfiles,
+      universityName: universities.name,
+      facultyName: faculties.name,
+      departmentName: departments.name,
+      academicYearLabel: academicYears.label,
+    })
+    .from(studentProfiles)
+    .leftJoin(universities, eq(universities.id, studentProfiles.universityId))
+    .leftJoin(faculties, eq(faculties.id, studentProfiles.facultyId))
+    .leftJoin(departments, eq(departments.id, studentProfiles.departmentId))
+    .leftJoin(academicYears, eq(academicYears.id, studentProfiles.academicYearId))
+    .where(eq(studentProfiles.userId, user.id))
+    .limit(1);
+
+  return {
+    user,
+    universityId: row?.profile.universityId ?? null,
+    universityName: row?.universityName ?? null,
+    facultyId: row?.profile.facultyId ?? null,
+    facultyName: row?.facultyName ?? null,
+    departmentId: row?.profile.departmentId ?? null,
+    departmentName: row?.departmentName ?? null,
+    academicYearId: row?.profile.academicYearId ?? null,
+    academicYearLabel: row?.academicYearLabel ?? null,
+    major: row?.profile.major ?? null,
+    studentNumber: row?.profile.studentNumber ?? null,
+  };
+}
+
+/**
+ * Updates the student's own profile.
+ *
+ * University, faculty and department are resolved the same way registration
+ * resolves them — by name, creating the reference row if it is genuinely new —
+ * so a student at an institution nobody has entered yet is not locked out of
+ * their own profile by a dropdown.
+ */
+export async function updateStudentProfile(
+  db: Database,
+  user: AuthenticatedUser,
+  patch: {
+    fullName?: string;
+    interfaceLocale?: string;
+    timezone?: string;
+    universityName?: string | null;
+    facultyName?: string | null;
+    departmentName?: string | null;
+    academicYearId?: string | null;
+    major?: string | null;
+    studentNumber?: string | null;
+  },
+): Promise<StudentProfileView> {
+  const account: { fullName?: string; interfaceLocale?: string; timezone?: string } = {};
+  if (patch.fullName !== undefined) {
+    const fullName = patch.fullName.trim();
+    if (fullName.length === 0) throw Errors.validation('A name cannot be empty.');
+    account.fullName = fullName.slice(0, 200);
+  }
+  if (patch.interfaceLocale !== undefined) account.interfaceLocale = patch.interfaceLocale;
+  if (patch.timezone !== undefined) account.timezone = patch.timezone;
+
+  const updated =
+    Object.keys(account).length > 0 ? await updateProfile(db, user.id, account) : user;
+
+  const [existing] = await db
+    .select()
+    .from(studentProfiles)
+    .where(eq(studentProfiles.userId, user.id))
+    .limit(1);
+
+  const clean = (value: string | null | undefined): string | null | undefined =>
+    value === undefined ? undefined : value === null ? null : value.trim() || null;
+
+  let universityId = existing?.universityId ?? null;
+  let facultyId = existing?.facultyId ?? null;
+  let departmentId = existing?.departmentId ?? null;
+
+  const universityName = clean(patch.universityName);
+  if (universityName !== undefined) {
+    universityId = universityName
+      ? await resolveUniversity(db, { name: universityName }, user.id)
+      : null;
+    // A faculty belongs to a university and a department to a faculty, so
+    // changing the parent invalidates the children rather than leaving a
+    // department attached to an institution it is not part of.
+    facultyId = null;
+    departmentId = null;
+  }
+
+  const facultyName = clean(patch.facultyName);
+  if (facultyName !== undefined) {
+    facultyId =
+      facultyName && universityId
+        ? await resolveFaculty(db, universityId, { name: facultyName }, user.id)
+        : null;
+    departmentId = null;
+  }
+
+  const departmentName = clean(patch.departmentName);
+  if (departmentName !== undefined) {
+    departmentId =
+      departmentName && facultyId
+        ? await resolveDepartment(db, facultyId, { name: departmentName }, user.id)
+        : null;
+  }
+
+  const values = {
+    universityId,
+    facultyId,
+    departmentId,
+    academicYearId:
+      patch.academicYearId !== undefined
+        ? patch.academicYearId
+        : (existing?.academicYearId ?? null),
+    major: clean(patch.major) !== undefined ? (clean(patch.major) ?? null) : (existing?.major ?? null),
+    studentNumber:
+      clean(patch.studentNumber) !== undefined
+        ? (clean(patch.studentNumber) ?? null)
+        : (existing?.studentNumber ?? null),
+    updatedAt: new Date(),
+  };
+
+  if (existing) {
+    await db.update(studentProfiles).set(values).where(eq(studentProfiles.userId, user.id));
+  } else {
+    await db.insert(studentProfiles).values({ userId: user.id, ...values });
+  }
+
+  return readProfile(db, updated);
 }

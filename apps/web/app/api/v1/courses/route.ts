@@ -4,9 +4,12 @@ import { db } from '@sanad/db';
 import { requireUser, subjectOf } from '@/lib/auth';
 import { handler, json, parseBody } from '@/lib/http';
 
-export const GET = handler(async () => {
+export const GET = handler(async (request) => {
   const user = await requireUser();
-  const courses = await listCourses(db(), subjectOf(user));
+  // Archived courses are out of the way by default and one query away.
+  const includeArchived =
+    new URL(request.url).searchParams.get('include_archived') === 'true';
+  const courses = await listCourses(db(), subjectOf(user), { includeArchived });
   return json({ courses });
 });
 

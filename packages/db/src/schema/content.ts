@@ -53,6 +53,15 @@ export const lectures = pgTable(
     /** "Lecture 4". Nullable — courses number themselves differently or not at all. */
     sequenceNo: integer('sequence_no'),
     occurredOn: date('occurred_on'),
+    /**
+     * A free-text grouping label — "Week 3", "Revision", "Midterm".
+     *
+     * Deliberately one nullable column and not a folder tree. Students want to
+     * group things; they do not want to maintain a filesystem, and a tree here
+     * would mean move semantics, orphan handling and recursive queries for a
+     * feature whose whole value is a heading in a list.
+     */
+    folder: text('folder'),
     status: lectureStatus('status').notNull().default('scheduled'),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -90,6 +99,8 @@ export const materials = pgTable(
     derivedFromMaterialId: uuid('derived_from_material_id'),
     /** Client-generated before recording starts; makes a retried upload idempotent. */
     clientRef: text('client_ref'),
+    /** Same grouping label as `lectures.folder`. */
+    folder: text('folder'),
     retentionExpiresAt: timestamp('retention_expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

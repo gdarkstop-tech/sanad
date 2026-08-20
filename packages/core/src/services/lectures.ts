@@ -23,6 +23,7 @@ export interface LectureView {
   sequenceNo: number | null;
   occurredOn: string | null;
   status: string;
+  folder: string | null;
   createdAt: Date;
   hasRecording: boolean;
   segmentCount: number;
@@ -32,7 +33,12 @@ export async function createLecture(
   db: Database,
   subject: Subject,
   offeringId: string,
-  input: { title: string; sequenceNo?: number | null; occurredOn?: string | null },
+  input: {
+    title: string;
+    sequenceNo?: number | null;
+    occurredOn?: string | null;
+    folder?: string | null;
+  },
 ): Promise<LectureView> {
   await getCourseFor(db, subject, offeringId, 'add_content');
 
@@ -43,6 +49,7 @@ export async function createLecture(
       title: input.title,
       sequenceNo: input.sequenceNo ?? null,
       occurredOn: input.occurredOn ?? null,
+      folder: normalizeFolder(input.folder),
       createdBy: subject.userId,
     })
     .returning();
@@ -98,6 +105,48 @@ export async function readLecture(
   const row = await getLecture(db, subject, lectureId);
   const counts = await lectureCounts(db, row.id);
   return toView(row, counts.hasRecording, counts.segmentCount);
+}
+
+/**
+ * Normalizes a folder label.
+ *
+ * Trimmed, length-capped, and empty means "no folder" — so a student clearing
+ * the field ungroups the lecture instead of creating a folder named "".
+ */
+export function normalizeFolder(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = value.trim().slice(0, 80);
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/** Renames a lecture or moves it between folders. */
+export async function updateLecture(
+  db: Database,
+  subject: Subject,
+  lectureId: string,
+  patch: { title?: string; folder?: string | null; occurredOn?: string | null },
+): Promise<LectureView> {
+  const row = await getLecture(db, subject, lectureId, 'add_content');
+
+  const changes: Partial<typeof lectures.$inferInsert> = { updatedAt: new Date() };
+  if (patch.title !== undefined) {
+    const title = patch.title.trim();
+    if (title.length === 0) throw Errors.validation('A lecture needs a title.');
+    changes.title = title.slice(0, 200);
+  }
+  // `undefined` means "leave it alone"; explicit null means "ungroup it".
+  if (patch.folder !== undefined) changes.folder = normalizeFolder(patch.folder);
+  if (patch.occurredOn !== undefined) changes.occurredOn = patch.occurredOn;
+
+  const [updated] = await db
+    .update(lectures)
+    .set(changes)
+    .where(eq(lectures.id, row.id))
+    .returning();
+  if (!updated) throw Errors.notFound('Lecture');
+
+  const counts = await lectureCounts(db, updated.id);
+  return toView(updated, counts.hasRecording, counts.segmentCount);
 }
 
 export async function deleteLecture(
@@ -187,6 +236,7 @@ function toView(
     sequenceNo: row.sequenceNo,
     occurredOn: row.occurredOn,
     status: row.status,
+    folder: row.folder,
     createdAt: row.createdAt,
     hasRecording,
     segmentCount,

@@ -36,6 +36,13 @@
       "when": 1787231028994,
       "tag": "0004_phase7_planning",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787237743656,
+      "tag": "0005_phase8_organization",
+      "breakpoints": true
     }
   ]
 }

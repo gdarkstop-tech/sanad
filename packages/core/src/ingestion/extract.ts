@@ -1,4 +1,5 @@
 import { normalizeForSearch } from '../text';
+import { docxExtractor, pptxExtractor } from './office';
 
 /**
  * Extraction (AI_PIPELINE.md §5).
@@ -133,7 +134,12 @@ export const textExtractor: Extractor = {
   },
 };
 
-const EXTRACTORS: Extractor[] = [pdfExtractor, textExtractor];
+/**
+ * Order matters only where two extractors could claim the same file. The
+ * Office extractors match on their own MIME types and extensions, and the text
+ * extractor is last because it is the most permissive.
+ */
+const EXTRACTORS: Extractor[] = [pdfExtractor, docxExtractor, pptxExtractor, textExtractor];
 
 export function extractorFor(mimeType: string, filename: string): Extractor | null {
   return EXTRACTORS.find((e) => e.supports(mimeType, filename)) ?? null;

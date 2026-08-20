@@ -70,6 +70,12 @@ export const courseOfferings = pgTable(
     secondaryLanguages: text('secondary_languages').array().notNull().default([]),
     /** Per-course generation config. Never subject logic in code. */
     questionProfile: jsonb('question_profile').notNull().default({}),
+    /**
+     * Archived, not deleted. Last semester's courses leave the active list but
+     * keep every lecture, transcript and answer — a student who archives a
+     * course has not asked to lose it, and `deletedAt` already means deleted.
+     */
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

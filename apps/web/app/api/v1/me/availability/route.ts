@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { setAvailability } from '@sanad/core';
+import { readAvailability, setAvailability } from '@sanad/core';
 import { db } from '@sanad/db';
 import { requireUser, subjectOf } from '@/lib/auth';
 import { handler, json, parseBody } from '@/lib/http';
@@ -18,6 +18,13 @@ const schema = z.object({
       }),
     )
     .max(60),
+});
+
+/** The declared week, so an editor can render what the scheduler actually uses. */
+export const GET = handler(async () => {
+  const user = await requireUser();
+  const windows = await readAvailability(db(), subjectOf(user));
+  return json({ windows });
 });
 
 /** Replaces the whole week: partial edits of a schedule are ambiguous. */
