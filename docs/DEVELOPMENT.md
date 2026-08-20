@@ -52,6 +52,29 @@ Phase 2+ ones that are listed but unused, so the shape is known in advance.
 | `pnpm db:seed:demo` | Seed a full demo account: two unrelated courses, lectures with transcripts, PDFs, answer history, exam date and a study plan |
 | `pnpm test:asr` | ASR benchmark harness tests |
 | `pnpm check:course-agnostic` | Fail if a seeded subject term leaked into code |
+| `pnpm verify:isolation <url>` | Probe cross-student isolation over HTTP against a running server |
+
+## The mobile app
+
+`apps/mobile` is excluded from the root `tsconfig.json`: it needs Expo's own base
+config and its own React types, and React Native pins `@types/react` 18 while the
+web app is on 19. It is checked on its own.
+
+```bash
+cd apps/mobile
+cp .env.example .env                    # EXPO_PUBLIC_SANAD_API_URL
+pnpm exec tsc --noEmit                  # typecheck against real Expo types
+pnpm exec expo export --platform android  # proves it bundles
+pnpm start                              # Expo dev server
+```
+
+On a device or emulator, `localhost` is the device, not your machine. Use your
+LAN address, or `10.0.2.2` on an Android emulator — `lib/config.ts` documents
+the resolution order.
+
+**It has not been run on a physical device.** It typechecks and bundles, and the
+queue logic underneath it is covered by 29 Node tests, but audio capture,
+permissions and background behaviour are unverified in practice.
 
 ## Tests
 
@@ -97,12 +120,15 @@ case: a subject name used as an example inside a code comment.
 ## Project layout
 
 ```
-apps/web          Next.js — responsive PWA, REST API
+apps/web          Next.js — web app and the REST API
+apps/mobile       Expo / React Native — 13 screens against the same API
 packages/db       Drizzle schema + migrations   ← sole schema owner
-packages/core     Domain services: auth, courses, permissions, text
+packages/core     Domain services: auth, courses, permissions, retrieval, text
 packages/contracts Zod schemas shared by every caller
+packages/offline  Recording queue and content cache — platform-agnostic
 seed/             Demo course fixtures (two unrelated disciplines)
-scripts/          CI checks
+scripts/          CI checks, seeds, the isolation probe
+benchmarks/asr    ASR evaluation harness (Python)
 tests/            Unit + integration
 ```
 
@@ -123,5 +149,10 @@ summaries, flashcards and questions are extractive and need no model at all.
 Each sits behind a provider interface, so a local or paid model is an upgrade
 rather than a dependency.
 
-**Not built yet:** client-side offline recording (the server side is complete
-and tested), and the Expo mobile app. See the final report for details.
+Client-side offline recording and the Expo app are now built too: recording
+never needs a network, the queue resumes by byte offset and cannot create a
+duplicate lecture, and downloaded courses stay readable offline.
+
+**For what is and is not verified, read the [Status section of the
+README](../README.md#status).** It is deliberately specific about the difference
+between "tested" and "run on a phone".

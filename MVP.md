@@ -2,7 +2,12 @@
 
 Scope, phases, and the demo narrative.
 
-**Status:** decisions finalized. **Phase 1 complete**; Phases 2–11 not started.
+**Status:** Phases 1–7 delivered. What is implemented, what is implemented but unverified, and what is not built are set out in the [README's Status section](README.md#status), which is the authoritative record. The verified demo script is [docs/DEMO.md](docs/DEMO.md).
+
+Two capabilities in §1 did not ship as originally specified, and this document keeps the original wording so the change is visible rather than quietly edited away:
+
+- **Capability 1, live transcription** → delivered as **offline recording with automatic transcription after upload**. The reasoning, and what would reverse it, is in [docs/LIVE_TRANSCRIPTION_DECISION.md](docs/LIVE_TRANSCRIPTION_DECISION.md).
+- **Capability 14, on-demand translation** → not built. Language is stored per transcript segment, so the data is there; the surface is not.
 
 ---
 
@@ -182,6 +187,8 @@ Integration and evaluation suites green, RTL and localization verified, accessib
 
 ## 5. Demo narrative
 
+**This section is the narrative as originally planned. The script that was actually built and verified is [docs/DEMO.md](docs/DEMO.md)** — use that one on the day. The differences are steps 3–6: there is no live transcription beat, because there is no live transcription (see the status note at the top of this file). Everything from step 7 onward runs as described.
+
 The 21 steps from the brief, mapped to the capability each exercises. Any course may be used; the seeded demo course is one example among the seeded set.
 
 | # | Step | Exercises |
@@ -243,3 +250,20 @@ The 21 steps from the brief, mapped to the capability each exercises. Any course
 10. The §5 narrative runs start to finish without intervention.
 
 Items 3, 4, and 5 are release gates. They are the product's central claim, and a regression in any of them is not a quality dip — it is the claim failing.
+
+### Where this stands
+
+| # | Item | State |
+|---|---|---|
+| 1 | Thirteen capabilities end to end | Met, except live transcription (delivered as recording-first) and translation (not built) |
+| 2, 2a | Course-agnostic on two unrelated disciplines | Met — `pnpm check:course-agnostic`, and the seeded demo carries two unrelated subjects |
+| 3 | Zero fabricated answers | Met on the test set: the generator is not invoked below the confidence threshold, and composition quotes retrieved chunks |
+| 4 | Zero unresolvable citations | Met — citations are validated against the retrieved set before rendering; `content_chunks_anchor_ck` makes an unanchored chunk unstorable |
+| 5 | Zero generated study items without a source | Met — `sourceChunkId` is `NOT NULL`, and `exam.test.ts` asserts it |
+| 6 | Raw transcripts retrievable | Met |
+| 6a | Offline recording reaches the archive without duplication | Met **in test**, across 29 queue tests including app-restart and mid-upload-drop recovery. Not verified on a physical device |
+| 6b | Downloaded content readable with networking disabled | Met **in test**. Not verified on a physical device |
+| 7 | Scheduler guarantees | Met — including an `EXCLUDE` constraint the database enforces independently of the scheduler |
+| 8 | Arabic RTL rendering | Mixed-script segments store and serve correctly and are covered by tests; **visual RTL rendering has not been reviewed on a device** |
+| 9 | Clean migrations from empty, seeds load | Met — verified repeatedly from a dropped database |
+| 10 | The narrative runs without intervention | Met for [docs/DEMO.md](docs/DEMO.md), which is the script that was built |
