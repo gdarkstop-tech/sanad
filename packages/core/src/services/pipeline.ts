@@ -164,7 +164,13 @@ export async function chunkTranscript(db: Database, lectureId: string): Promise<
   if (current.length > 0) groups.push(current);
 
   const rows = groups.map((group) => {
-    const text = group.map((s) => s.displayText).join(' ').trim();
+    // Newline, not space: a transcript segment is the closest thing speech has
+    // to a sentence, and recognizers rarely emit punctuation. Joining with a
+    // space destroys the only boundary downstream summarization, flashcards and
+    // question generation have to work with — one chunk becomes one run-on
+    // "sentence". Search normalization collapses whitespace, so this costs
+    // retrieval nothing.
+    const text = group.map((s) => s.displayText).join('\n').trim();
     const confidences = group
       .map((s) => s.confidence)
       .filter((c): c is number => c !== null);

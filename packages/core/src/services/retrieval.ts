@@ -234,7 +234,10 @@ export async function retrieve(
 }
 
 /** A window around the first matching term, so results are scannable. */
-export function snippetFor(text: string, normalizedQuery: string, width = 220): string {
+export function snippetFor(source: string, normalizedQuery: string, width = 220): string {
+  // A snippet is always rendered on one line, so segment boundaries inside the
+  // chunk are collapsed here rather than leaking into every caller.
+  const text = source.replace(/\s+/g, ' ').trim();
   const terms = normalizedQuery.split(' ').filter((t) => t.length > 2);
   const haystack = normalizeForSearch(text);
   let index = -1;

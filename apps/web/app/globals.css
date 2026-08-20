@@ -181,3 +181,8 @@ ul.sources li { border-inline-start: 2px solid var(--line); padding-inline-start
 @media (max-width: 34rem) {
   ol.transcript li { grid-template-columns: 1fr; gap: 0.15rem; }
 }
+
+/* Extracted summary sentences: one per line, so distinct moments in the
+   material do not read as a single run-on paragraph. */
+.summary-line { margin-block: 0 0.45rem; line-height: 1.6; }
+.summary-line:last-child { margin-block-end: 0; }

@@ -87,6 +87,51 @@ function contentWords(text: string): string[] {
 }
 
 /**
+ * Sentences across a set of chunks, without repeats.
+ *
+ * Transcript chunks deliberately overlap by one segment so a definition
+ * straddling a boundary is still retrievable. That overlap must not reach the
+ * student: without this, the same sentence is summarized twice and turned into
+ * two identical flashcards.
+ */
+function uniqueSentences(chunks: ScoredChunk[]): Array<{ chunk: ScoredChunk; sentence: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ chunk: ScoredChunk; sentence: string }> = [];
+  for (const chunk of chunks) {
+    for (const sentence of sentencesOf(chunk.text)) {
+      const key = normalizeForSearch(sentence);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ chunk, sentence });
+    }
+  }
+  return out;
+}
+
+/**
+ * Chooses the term a cloze card should blank.
+ *
+ * Not the rarest word. In speech the rarest word is usually filler — "today",
+ * "okay", "anyway" — and blanking it produces a question that tests nothing.
+ * A term the course keeps coming back to is the course's own vocabulary, so
+ * recurrence is what is rewarded here, with length as the tiebreak because
+ * technical terms are rarely short. Recurrence is capped so a word that
+ * appears constantly cannot crowd out everything else.
+ */
+function keyTermOf(
+  sentence: string,
+  frequency: Map<string, number>,
+  exclude: ReadonlySet<string> = new Set(),
+): string | null {
+  const score = (word: string): number =>
+    Math.min(frequency.get(word) ?? 1, 4) * 2 + Math.min(word.length, 12);
+
+  const words = contentWords(sentence).filter((word) => !exclude.has(word));
+  if (words.length === 0) return null;
+  return words.sort((a, b) => score(b) - score(a) || a.localeCompare(b))[0] ?? null;
+}
+
+/**
  * Extractive summarization: scores sentences by the course-relative frequency
  * of the content words they carry, then keeps the highest-scoring ones in their
  * original order so the summary still reads as a narrative.
@@ -104,25 +149,28 @@ export class ExtractiveSummaryProvider implements SummaryProvider {
 
     const candidates: Array<{ sentence: string; score: number; order: number }> = [];
     let order = 0;
-    for (const chunk of chunks) {
-      for (const sentence of sentencesOf(chunk.text)) {
-        const words = contentWords(sentence);
-        if (words.length === 0) continue;
-        const score =
-          (words.reduce((sum, word) => sum + (frequency.get(word) ?? 0), 0) / words.length) *
-          chunk.weight;
-        candidates.push({ sentence, score, order: order++ });
-      }
+    for (const { chunk, sentence } of uniqueSentences(chunks)) {
+      const words = contentWords(sentence);
+      if (words.length === 0) continue;
+      const score =
+        (words.reduce((sum, word) => sum + (frequency.get(word) ?? 0), 0) / words.length) *
+        chunk.weight;
+      candidates.push({ sentence, score, order: order++ });
     }
 
     if (candidates.length === 0) return '';
 
+    // Newline-separated, not space-joined. These are extracted sentences from
+    // different moments in the material, and speech rarely carries terminal
+    // punctuation — joining with a space would run them together into one
+    // unreadable line, and adding a full stop would put punctuation in the
+    // student's mouth that the source never had.
     return candidates
       .sort((a, b) => b.score - a.score)
       .slice(0, maxSentences)
       .sort((a, b) => a.order - b.order)
-      .map((candidate) => candidate.sentence)
-      .join(' ');
+      .map((candidate) => candidate.sentence.trim())
+      .join('\n');
   }
 }
 
@@ -146,27 +194,23 @@ export class ClozeFlashcardGenerator implements FlashcardGenerator {
     const cards: Array<{ front: string; back: string; sourceChunkId: string }> = [];
     const used = new Set<string>();
 
-    for (const chunk of [...chunks].sort((a, b) => b.weight - a.weight)) {
-      for (const sentence of sentencesOf(chunk.text)) {
-        if (cards.length >= max) return cards;
+    const ordered = [...chunks].sort((a, b) => b.weight - a.weight);
+    for (const { chunk, sentence } of uniqueSentences(ordered)) {
+      if (cards.length >= max) return cards;
 
-        // The rarest content word carries the most information.
-        const candidate = contentWords(sentence)
-          .filter((word) => !used.has(word))
-          .sort((a, b) => (frequency.get(a) ?? 0) - (frequency.get(b) ?? 0))[0];
-        if (!candidate) continue;
+      const candidate = keyTermOf(sentence, frequency, used);
+      if (!candidate) continue;
 
-        const pattern = new RegExp(`\\b${escapeRegex(candidate)}\\w*`, 'iu');
-        const match = sentence.match(pattern);
-        if (!match) continue;
+      const pattern = new RegExp(`\\b${escapeRegex(candidate)}\\w*`, 'iu');
+      const match = sentence.match(pattern);
+      if (!match) continue;
 
-        used.add(candidate);
-        cards.push({
-          front: sentence.replace(pattern, '_____'),
-          back: match[0],
-          sourceChunkId: chunk.id,
-        });
-      }
+      used.add(candidate);
+      cards.push({
+        front: sentence.replace(pattern, '_____'),
+        back: match[0],
+        sourceChunkId: chunk.id,
+      });
     }
     return cards;
   }
@@ -201,14 +245,16 @@ export class TemplateQuestionGenerator implements QuestionGenerator {
 
     const ordered = [...chunks].sort((a, b) => b.weight - a.weight);
 
-    for (const chunk of ordered) {
+    // One question per chunk, from its first sentence — spreading questions
+    // across the material rather than mining one passage. Overlapping chunks
+    // are filtered first so the same sentence cannot be asked twice.
+    const seenChunks = new Set<string>();
+    for (const { chunk, sentence } of uniqueSentences(ordered)) {
       if (generated.length >= max) break;
-      const sentences = sentencesOf(chunk.text);
-      const sentence = sentences[0];
-      if (!sentence) continue;
+      if (seenChunks.has(chunk.id)) continue;
+      seenChunks.add(chunk.id);
 
-      const words = contentWords(sentence);
-      const key = words.sort((a, b) => (frequency.get(a) ?? 0) - (frequency.get(b) ?? 0))[0];
+      const key = keyTermOf(sentence, frequency);
 
       if (key && generated.length % 2 === 0) {
         const distractors = pool

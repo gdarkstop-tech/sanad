@@ -4,6 +4,8 @@ import path from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import {
+  ClozeFlashcardGenerator,
+  ExtractiveSummaryProvider,
   FixtureAsrProvider,
   HashEmbeddingProvider,
   LocalDiskStorage,
@@ -25,6 +27,7 @@ import {
   startAttempt,
   submitAnswer,
   uploadDirect,
+  type ScoredChunk,
   type Subject,
 } from '@sanad/core';
 import { flashcards, questions, studyTopics } from '@sanad/db';
@@ -124,6 +127,88 @@ describe('extractive study content', () => {
     const [card] = await db.select().from(flashcards).where(eq(flashcards.offeringId, course.id));
     expect(card?.front).toContain('_____');
     expect(card?.back.length).toBeGreaterThan(2);
+  });
+
+  it('does not repeat a sentence that two overlapping chunks share', async () => {
+    // Transcript chunks overlap by one segment on purpose, so a definition on a
+    // boundary stays retrievable. That overlap must not reach the student as a
+    // duplicated summary line or two identical flashcards.
+    const shared = 'Active transport requires energy to move solutes against their gradient';
+    const chunks: ScoredChunk[] = [
+      {
+        id: 'chunk-a',
+        text: `Passive transport moves solutes down a concentration gradient\n${shared}`,
+        weight: 1,
+        lectureId: 'lecture-1',
+        emphasised: false,
+      },
+      {
+        id: 'chunk-b',
+        text: `${shared}\nThe sodium potassium pump is the standard example of that process`,
+        weight: 1,
+        lectureId: 'lecture-1',
+        emphasised: false,
+      },
+    ];
+
+    const summary = await new ExtractiveSummaryProvider().summarize(chunks, 6);
+    const lines = summary.split('\n').filter(Boolean);
+    expect(lines.length).toBe(new Set(lines).size);
+
+    const cards = await new ClozeFlashcardGenerator().generate(chunks, 12);
+    const fronts = cards.map((card) => card.front.replace(/_+/g, ''));
+    expect(fronts.length).toBe(new Set(fronts).size);
+  });
+
+  it('keeps a summary readable instead of running its sentences together', async () => {
+    // Speech rarely carries terminal punctuation, so a space-joined summary of
+    // transcript sentences is one unreadable line.
+    const chunks: ScoredChunk[] = [
+      {
+        id: 'chunk-a',
+        text: 'Osmosis is the movement of water across a selectively permeable membrane\nDiffusion moves solutes from a high concentration to a low concentration',
+        weight: 1,
+        lectureId: 'lecture-1',
+        emphasised: false,
+      },
+    ];
+
+    const summary = await new ExtractiveSummaryProvider().summarize(chunks, 6);
+    expect(summary.split('\n').filter(Boolean).length).toBe(2);
+  });
+
+  it('blanks a term the course keeps using, not a one-off filler word', async () => {
+    // The rarest word in speech is usually filler. Blanking "today" produces a
+    // question that tests nothing, so recurrence is what earns the blank.
+    const chunks: ScoredChunk[] = [
+      {
+        id: 'chunk-a',
+        text: 'Today we continue with membrane transport and how we compare the mechanisms',
+        weight: 3,
+        lectureId: 'lecture-1',
+        emphasised: false,
+      },
+      {
+        id: 'chunk-b',
+        text: 'Membrane transport can be passive or active depending on the energy required',
+        weight: 2,
+        lectureId: 'lecture-1',
+        emphasised: false,
+      },
+      {
+        id: 'chunk-c',
+        text: 'Active membrane transport uses ATP to move solutes against the gradient',
+        weight: 1,
+        lectureId: 'lecture-1',
+        emphasised: false,
+      },
+    ];
+
+    const cards = await new ClozeFlashcardGenerator().generate(chunks, 12);
+    const first = cards.find((card) => card.front.includes('we continue'));
+    expect(first).toBeTruthy();
+    expect(first!.back.toLowerCase()).not.toBe('today');
+    expect(first!.back.toLowerCase()).toMatch(/membrane|transport|mechanisms|continue|compare/);
   });
 
   it('derives topics from the course’s own vocabulary', async () => {

@@ -84,7 +84,13 @@ export function ExamMode({ courseId }: { courseId: string }) {
           {pack.summary ? (
             <div>
               <h3>Course summary</h3>
-              <p>{pack.summary}</p>
+              {/* One extracted sentence per line: HTML would otherwise collapse
+                  them into a single run-on paragraph. */}
+              {pack.summary.split('\n').map((line, index) => (
+                <p key={index} className="summary-line">
+                  {line}
+                </p>
+              ))}
             </div>
           ) : null}
 
