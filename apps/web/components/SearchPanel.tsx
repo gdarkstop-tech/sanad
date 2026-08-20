@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { api, messageFor } from '@/lib/client';
+import { DerivedFromDemoNote } from '@/components/TranscriptSourceNote';
 
 interface Result {
   chunkId: string;
@@ -12,7 +13,14 @@ interface Result {
 }
 
 /** Unified search across transcripts and materials for one course. */
-export function SearchPanel({ courseId }: { courseId?: string }) {
+export function SearchPanel({
+  courseId,
+  demoContent = false,
+}: {
+  courseId?: string;
+  /** True when any lecture in scope has a placeholder transcript. */
+  demoContent?: boolean;
+}) {
   const [results, setResults] = useState<Result[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +46,8 @@ export function SearchPanel({ courseId }: { courseId?: string }) {
   return (
     <section className="card">
       <h2>Search</h2>
+      <DerivedFromDemoNote show={Boolean(demoContent)} />
+
       <form onSubmit={onSubmit} className="row" style={{ gap: '0.5rem' }}>
         <input name="q" placeholder="Search lectures and materials" style={{ flex: 1 }} />
         <button type="submit" disabled={busy}>{busy ? '…' : 'Search'}</button>

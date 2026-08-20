@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { strToU8, zipSync } from 'fflate';
 import {
   FixtureAsrProvider,
   createCourse,
@@ -80,6 +81,60 @@ const LECTURES: Record<string, Array<{ text: string; confidence: number }>> = {
     { text: 'The sodium potassium pump is the classic example of active transport', confidence: 0.92 },
   ],
 };
+
+/**
+ * Minimal but genuinely valid OOXML.
+ *
+ * Real archives with real markup inside, parsed by the real extractor — the
+ * same reason the PDFs below are real PDFs. A stub would demo nothing.
+ */
+function escapeXml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const OOXML_CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="xml" ContentType="application/xml"/>
+</Types>`;
+
+function makePptx(slides: string[][]): Buffer {
+  const entries: Record<string, Uint8Array> = {
+    '[Content_Types].xml': strToU8(OOXML_CONTENT_TYPES),
+  };
+  slides.forEach((lines, index) => {
+    const shapes = lines
+      .map(
+        (line) =>
+          `<p:sp><p:txBody><a:p><a:r><a:t>${escapeXml(line)}</a:t></a:r></a:p></p:txBody></p:sp>`,
+      )
+      .join('');
+    entries[`ppt/slides/slide${index + 1}.xml`] = strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+       xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+  <p:cSld><p:spTree>${shapes}</p:spTree></p:cSld>
+</p:sld>`,
+    );
+  });
+  return Buffer.from(zipSync(entries));
+}
+
+function makeDocx(paragraphs: string[]): Buffer {
+  const body = paragraphs
+    .map((text) => `<w:p><w:r><w:t>${escapeXml(text)}</w:t></w:r></w:p>`)
+    .join('');
+  return Buffer.from(
+    zipSync({
+      '[Content_Types].xml': strToU8(OOXML_CONTENT_TYPES),
+      'word/document.xml': strToU8(
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>${body}</w:body>
+</w:document>`,
+      ),
+    }),
+  );
+}
 
 /** Minimal but valid PDFs, so extraction runs for real rather than being stubbed. */
 function makePdf(pages: string[]): Buffer {
@@ -199,6 +254,35 @@ async function main(): Promise<void> {
     ]),
   });
   console.log('  · week-4-slides.pdf');
+
+  // A real PPTX, so the demo can show a citation that says "slide 3" — the
+  // anchor is the reason the format is supported at all.
+  await uploadDirect(db, subject, {
+    clientRef: 'demo-cs-deck',
+    offeringId: cs.id,
+    filename: 'week-4-lecture-deck.pptx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    data: makePptx([
+      ['Week 4 overview', 'Hash tables and their trade-offs'],
+      ['Chaining', 'Colliding entries live in a list attached to the bucket'],
+      ['Open addressing', 'Probe for the next free slot instead of chaining'],
+      ['When to resize', 'Rehash once the load factor passes the threshold'],
+    ]),
+  });
+  console.log('  · week-4-lecture-deck.pptx (slide-anchored)');
+
+  await uploadDirect(db, subject, {
+    clientRef: 'demo-cs-notes',
+    offeringId: cs.id,
+    filename: 'tutorial-notes.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    data: makeDocx([
+      'A hash function maps a key of arbitrary size to an index in a fixed range.',
+      'A good hash function distributes keys uniformly so that collisions stay rare.',
+      'Amortised analysis explains why an occasional expensive resize is acceptable.',
+    ]),
+  });
+  console.log('  · tutorial-notes.docx');
 
   // Discipline 2 — unrelated, because the claim is that any course works.
   const bio = await createCourse(db, subject, {

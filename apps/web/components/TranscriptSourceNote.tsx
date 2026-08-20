@@ -44,3 +44,26 @@ export function TranscriptSourceNote({
     </p>
   );
 }
+
+/**
+ * A one-line warning for anything *derived* from a placeholder transcript.
+ *
+ * Search results, answers, flashcards and summaries are all built from the
+ * transcript. If that transcript is synthetic, so is everything downstream, and
+ * a citation pointing at a timestamp in placeholder text is more misleading
+ * than the placeholder itself — it looks like evidence.
+ *
+ * Takes the answer from the course's own lectures rather than a global flag: a
+ * course whose material is all PDFs has real content even on a machine with no
+ * speech engine, and warning there would be false.
+ */
+export function DerivedFromDemoNote({ show }: { show: boolean }) {
+  if (!show) return null;
+  return (
+    <p className="muted derived-note" role="status">
+      Some of this course’s lectures have <strong>demo transcripts</strong> rather than real
+      speech recognition, so results drawn from them are placeholder content. Documents
+      (PDF, DOCX, PPTX, text) are read for real.
+    </p>
+  );
+}

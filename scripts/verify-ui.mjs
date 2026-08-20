@@ -142,6 +142,24 @@ answered.includes('hash table') ? pass('Ask answers from the material') : fail('
 const sources = await page.locator('ul.sources li').count();
 sources > 0 ? pass(`answer cites ${sources} sources`) : fail('answer cites sources');
 
+// Every anchor kind the product claims must be demonstrable in one answer.
+const citationText = await page.locator('ul.sources').innerText();
+for (const [kind, pattern] of [
+  ['lecture timestamp', /\d+:\d{2}/],
+  ['document page', /page \d+/i],
+  ['presentation slide', /slide \d+/i],
+]) {
+  pattern.test(citationText)
+    ? pass(`citations include a ${kind}`)
+    : fail(`citations include a ${kind}`, citationText.slice(0, 200));
+}
+
+// Content derived from a placeholder transcript must say so.
+const askSection = await page.locator('section:has(#question)').innerText();
+askSection.includes('demo transcripts')
+  ? pass('Ask discloses demo-derived content')
+  : fail('Ask discloses demo-derived content', askSection.slice(0, 200));
+
 await page.fill('#question', 'What is the boiling point of liquid nitrogen at high altitude?');
 await page.click('button:has-text("Ask")');
 await page.waitForSelector('.answer.refused', { timeout: 20000 });

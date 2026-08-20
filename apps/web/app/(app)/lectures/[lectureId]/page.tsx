@@ -97,7 +97,11 @@ export default async function LecturePage({
           )}
         </section>
 
-        <AskPanel courseId={lecture.offeringId} courseTitle={lecture.title} />
+        <AskPanel
+          courseId={lecture.offeringId}
+          courseTitle={lecture.title}
+          demoContent={Boolean(lecture.transcription?.isSynthetic)}
+        />
       </div>
     </main>
   );

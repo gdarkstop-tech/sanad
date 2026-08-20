@@ -231,3 +231,4 @@ ul.sources li { border-inline-start: 2px solid var(--line); padding-inline-start
 }
 .rule { border: none; border-block-start: 1px solid var(--line); margin-block: 1rem; }
 button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.derived-note { border-inline-start: 3px solid var(--warn); padding-inline-start: 0.7rem; margin-block: 0.6rem; }

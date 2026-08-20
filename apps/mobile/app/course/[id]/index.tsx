@@ -128,7 +128,7 @@ export default function CourseScreen() {
               {lecture.segmentCount > 0
                 ? `Transcript ready · ${lecture.segmentCount} segments`
                 : lecture.hasRecording
-                  ? 'Recording uploaded, transcribing…'
+                  ? 'Recording uploaded, processing…'
                   : 'No recording yet'}
             </Text>
           </Pressable>

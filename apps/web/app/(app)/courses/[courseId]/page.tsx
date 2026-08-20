@@ -29,6 +29,9 @@ export default async function CoursePage({
   const materials = await listMaterials(db(), subject, courseId);
   const exams = await listExamDates(db(), subject, courseId);
   const asr = await asrCapability();
+  // Precise, not global: a course whose material is all PDFs has real content
+  // even where no speech engine exists, and warning there would be false.
+  const demoContent = lectures.some((lecture) => lecture.transcription?.isSynthetic);
 
   const upcoming = exams.filter((exam) => exam.examAt.getTime() >= Date.now());
   const lastLecture = lectures[0] ?? null;
@@ -62,9 +65,13 @@ export default async function CoursePage({
           materialCount={materials.length}
         />
 
-        <SearchPanel courseId={courseId} />
-        <AskPanel courseId={courseId} courseTitle={course.title} />
-        <ExamMode courseId={courseId} courseLanguage={course.primaryLanguage} />
+        <SearchPanel courseId={courseId} demoContent={demoContent} />
+        <AskPanel courseId={courseId} courseTitle={course.title} demoContent={demoContent} />
+        <ExamMode
+          courseId={courseId}
+          courseLanguage={course.primaryLanguage}
+          demoContent={demoContent}
+        />
         <ExamDateForm courseId={courseId} />
 
         <CourseSettings

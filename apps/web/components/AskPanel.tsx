@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { api, messageFor } from '@/lib/client';
+import { DerivedFromDemoNote } from '@/components/TranscriptSourceNote';
 
 interface Citation {
   chunkId: string;
@@ -26,7 +27,16 @@ interface AskResponse {
  * and the most important thing this product does. Sources are always shown
  * alongside an answer, never optionally.
  */
-export function AskPanel({ courseId, courseTitle }: { courseId: string; courseTitle: string }) {
+export function AskPanel({
+  courseId,
+  courseTitle,
+  demoContent = false,
+}: {
+  courseId: string;
+  courseTitle: string;
+  /** True when any lecture in scope has a placeholder transcript. */
+  demoContent?: boolean;
+}) {
   const [result, setResult] = useState<AskResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +64,8 @@ export function AskPanel({ courseId, courseTitle }: { courseId: string; courseTi
       <p className="muted" style={{ marginBlockStart: 0 }}>
         Answers come only from {courseTitle}. If your materials don’t cover it, Sanad says so.
       </p>
+
+      <DerivedFromDemoNote show={Boolean(demoContent)} />
 
       <form className="stack" onSubmit={onSubmit} style={{ maxWidth: 'none' }}>
         <div className="field">

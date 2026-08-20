@@ -14,7 +14,7 @@ const LABEL: Record<QueueItem['status'], { text: string; tone: 'neutral' | 'good
   recording: { text: 'recording', tone: 'warn' },
   queued: { text: 'waiting for network', tone: 'warn' },
   uploading: { text: 'uploading', tone: 'neutral' },
-  processing: { text: 'transcribing', tone: 'neutral' },
+  processing: { text: 'processing', tone: 'neutral' },
   ready: { text: 'ready', tone: 'good' },
   failed: { text: 'failed', tone: 'bad' },
 };

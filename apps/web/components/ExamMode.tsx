@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { api, messageFor } from '@/lib/client';
+import { DerivedFromDemoNote } from '@/components/TranscriptSourceNote';
 
 interface ExamPack {
   examId: string;
@@ -43,9 +44,12 @@ const LANGUAGES = [
 export function ExamMode({
   courseId,
   courseLanguage,
+  demoContent = false,
 }: {
   courseId: string;
   courseLanguage: string;
+  /** True when any lecture in scope has a placeholder transcript. */
+  demoContent?: boolean;
 }) {
   const [pack, setPack] = useState<ExamPack | null>(null);
   const [busy, setBusy] = useState(false);
@@ -108,6 +112,8 @@ export function ExamMode({
           quotation would break the link between a sentence and the moment it came from.
         </p>
       ) : null}
+
+      <DerivedFromDemoNote show={demoContent} />
 
       {error ? <p className="error" role="alert">{error}</p> : null}
 

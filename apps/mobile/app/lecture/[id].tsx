@@ -107,7 +107,7 @@ export default function Lecture() {
       {segments.length === 0 ? (
         <Empty
           title="No transcript yet."
-          hint="Once the recording uploads, Sanad transcribes it automatically."
+          hint="Once the recording uploads, Sanad processes it and the transcript appears here."
         />
       ) : null}
 
