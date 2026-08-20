@@ -35,10 +35,10 @@ Biology — Cell Structure
   · Lecture 02 — Membrane transport (7 segments)
   · membrane-handout.pdf
 
-Exam in 4 days · 17 study sessions planned
+Exam in 4 days · 16 study sessions planned
 ```
 
-Seventeen sessions, not a round number, because the seeded week has university, work and a gym in it. That is Beat 7.
+The session count varies a little with the day you seed on — the plan runs from today to the exam — but it is always well short of a free-evenings-every-night number, because the seeded week has university, work and a gym in it. That is Beat 7.
 
 **To reset between run-throughs** (about 30 seconds):
 
@@ -157,12 +157,12 @@ The seeded week is a real one, and that is the point:
 | Saturday | Free |
 | Sunday | Rest — nothing declared |
 
-Press **Plan my week around this**. Then point at the result:
+Press **Plan my week around this**. Then point at the result — read the count off the screen rather than quoting one, since the plan runs from today to the exam:
 
 - **Monday has zero sessions.** University and work take the whole day.
 - **Wednesday starts at 20:00**, after the gym — not during it.
 - **Friday and Sunday are empty.**
-- Tuesday and Saturday, the free days, carry most of the 17 sessions.
+- **Tuesday starts at 14:00 and Saturday at 10:00** — exactly the windows declared as free.
 
 > "Most study planners ask what you want to study. Sanad asks what your week actually looks like — and then it doesn't schedule over your shift. This is arithmetic, not a language model guessing: same inputs, same plan, every time, and the database itself refuses to double-book a slot."
 
