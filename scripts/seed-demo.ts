@@ -55,6 +55,10 @@ const LECTURES: Record<string, Array<{ text: string; confidence: number }>> = {
     { text: 'دي نقطة مهمة جدا ركزوا معايا في الفرق بين الاتنين', confidence: 0.87 },
     { text: 'The choice of pivot determines whether quick sort degrades to its worst case', confidence: 0.94 },
     { text: 'الفرق بين stable و unstable sorting ده مهم في الامتحان', confidence: 0.86 },
+    // Deliberately uncertain: a real recognizer is not uniformly confident, and
+    // the transcript marks what it is unsure of rather than presenting every
+    // line as equally reliable.
+    { text: 'ال heapsort كمان بيديك n log n بس مش stable', confidence: 0.54 },
     { text: 'A stable sort preserves the relative order of records with equal keys', confidence: 0.92 },
   ],
   'Lecture 04 — Hash tables': [
@@ -63,6 +67,7 @@ const LECTURES: Record<string, Array<{ text: string; confidence: number }>> = {
     { text: 'الـ collision بيحصل لما مفتاحين يروحوا لنفس الـ bucket', confidence: 0.85 },
     { text: 'Chaining stores colliding entries in a list attached to the bucket', confidence: 0.94 },
     { text: 'Open addressing probes for the next free slot instead of chaining', confidence: 0.9 },
+    { text: 'الـ rehashing بيحصل لما الـ load factor يعدي الحد', confidence: 0.58 },
     { text: 'This is important for the exam: know when to resize the table', confidence: 0.95 },
   ],
   'Lecture 02 — Membrane transport': [
@@ -71,6 +76,7 @@ const LECTURES: Record<string, Array<{ text: string; confidence: number }>> = {
     { text: 'الـ osmosis هي حركة الماء عبر غشاء شبه منفذ', confidence: 0.87 },
     { text: 'Active transport requires ATP because it moves substances against the gradient', confidence: 0.94 },
     { text: 'دي مهمة في الامتحان: الفرق بين الـ active و الـ passive transport', confidence: 0.89 },
+    { text: 'الـ facilitated diffusion بيستخدم carrier proteins من غير طاقة', confidence: 0.56 },
     { text: 'The sodium potassium pump is the classic example of active transport', confidence: 0.92 },
   ],
 };
