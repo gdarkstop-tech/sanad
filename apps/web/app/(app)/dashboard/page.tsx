@@ -3,6 +3,7 @@ import { listCourses } from '@sanad/core';
 import { db } from '@sanad/db';
 import { CourseList } from '@/components/CourseList';
 import { SignOutButton } from '@/components/SignOutButton';
+import { StudyCoach } from '@/components/StudyCoach';
 import { currentUser, subjectOf } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,8 @@ export default async function DashboardPage() {
         Phase 1 foundation: accounts and courses. Lectures, materials, and search
         arrive in later phases.
       </p>
+
+      <StudyCoach />
 
       <CourseList
         courses={courses.map((c) => ({

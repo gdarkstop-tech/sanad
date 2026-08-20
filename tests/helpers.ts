@@ -21,6 +21,7 @@ export async function resetDatabase(): Promise<void> {
   try {
     await sql`
       TRUNCATE TABLE
+        study_sessions, study_plans, course_exams, student_commitments, study_availability,
         citations, qa_messages, student_topic_mastery, attempt_answers, quiz_attempts,
         exam_items, exams, question_options, questions, flashcards, keywords, summaries,
         topic_links, study_topics, lecture_emphasis, emphasis_cues, content_chunks,
