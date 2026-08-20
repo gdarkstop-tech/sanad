@@ -53,6 +53,7 @@ Phase 2+ ones that are listed but unused, so the shape is known in advance.
 | `pnpm test:asr` | ASR benchmark harness tests |
 | `pnpm check:course-agnostic` | Fail if a seeded subject term leaked into code |
 | `pnpm verify:isolation <url>` | Probe cross-student isolation over HTTP against a running server |
+| `pnpm verify:ui <url>` | Drive the real UI in Chromium — the only check that runs client components |
 
 ## The mobile app
 
@@ -124,6 +125,7 @@ apps/web          Next.js — web app and the REST API
 apps/mobile       Expo / React Native — 13 screens against the same API
 packages/db       Drizzle schema + migrations   ← sole schema owner
 packages/core     Domain services: auth, courses, permissions, retrieval, text
+                  ingestion/  PDF, text, DOCX, PPTX extractors
 packages/contracts Zod schemas shared by every caller
 packages/offline  Recording queue and content cache — platform-agnostic
 seed/             Demo course fixtures (two unrelated disciplines)

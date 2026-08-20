@@ -35,8 +35,10 @@ Biology — Cell Structure
   · Lecture 02 — Membrane transport (7 segments)
   · membrane-handout.pdf
 
-Exam in 4 days · 28 study sessions planned
+Exam in 4 days · 17 study sessions planned
 ```
+
+Seventeen sessions, not a round number, because the seeded week has university, work and a gym in it. That is Beat 7.
 
 **To reset between run-throughs** (about 30 seconds):
 
@@ -49,10 +51,11 @@ Reset before the real run. A demo account that has been clicked through already 
 ### Checks worth running once, in the room, before anyone is watching
 
 ```bash
-pnpm test                    # 229 tests
+pnpm test                    # 272 tests
 pnpm typecheck               # clean
 pnpm check:course-agnostic   # no subject term leaked into code
 pnpm verify:isolation http://localhost:3000
+pnpm verify:ui http://localhost:3000    # drives the real UI in a browser
 ```
 
 The last one registers a throwaway second student and confirms they cannot reach the demo account's data. It is also worth having on screen if a judge asks about privacy.
@@ -138,13 +141,38 @@ Course page → **Prepare me for the exam**.
 
 > "Every card and every question names where it came from. If a question looks wrong, you can go and check — that link is the answer."
 
-### Beat 7 — The study coach (30 seconds)
+### Beat 7 — The study coach (45 seconds) — **the second-best beat**
 
-Dashboard → **Plan my week**.
+**Study plan** in the nav.
 
-28 sessions across the free evenings, ordered by weak topics and the exam four days out. The message quotes the numbers the scheduler used.
+The seeded week is a real one, and that is the point:
 
-> "This is arithmetic, not a language model guessing. Same inputs, same plan, every time. The database itself refuses to double-book a slot."
+| | |
+|---|---|
+| Monday | University 09:00–15:00, then work 16:00–21:00 |
+| Tuesday | Free |
+| Wednesday | Gym 18:00–20:00 |
+| Thursday | University 09:00–15:00 |
+| Friday | Gym |
+| Saturday | Free |
+| Sunday | Rest — nothing declared |
+
+Press **Plan my week around this**. Then point at the result:
+
+- **Monday has zero sessions.** University and work take the whole day.
+- **Wednesday starts at 20:00**, after the gym — not during it.
+- **Friday and Sunday are empty.**
+- Tuesday and Saturday, the free days, carry most of the 17 sessions.
+
+> "Most study planners ask what you want to study. Sanad asks what your week actually looks like — and then it doesn't schedule over your shift. This is arithmetic, not a language model guessing: same inputs, same plan, every time, and the database itself refuses to double-book a slot."
+
+Add a window live if you want — pick a day, pick *Work*, set the hours, press Add, then re-plan and watch the sessions move.
+
+### Beat 7b — Folders and archiving (15 seconds, optional)
+
+On the course page, lectures group under folder headings ("Week 3", "Revision"). On the dashboard, **Archive** files a finished course away — reversibly, keeping every lecture and transcript inside it.
+
+> "Filing, not deleting. A student tidying up should never lose a semester."
 
 ### Beat 8 — Offline recording (40 seconds)
 
@@ -159,6 +187,18 @@ Show the **Queue** tab: each recording with its state — `queued`, `uploading`,
 ```bash
 pnpm exec vitest run tests/integration/offline-queue.test.ts
 ```
+
+### Beat 8b — The roadmap (30 seconds)
+
+Bottom of **Study plan**, and the **Community** tab.
+
+Four cards, each saying what it will do and that it is not available: **AI Voice Tutor**, **YouTube import**, **full translation**, **Sanad Community**. Open the Community preview — posts, a TA answer, an AI reply badged as AI.
+
+> "That is the roadmap, and none of it is pretending. Nothing on these screens makes a request, because a preview that behaves like a broken feature is worse than no preview."
+
+One more, on the course page: pick **中文** in Exam Mode.
+
+> "It tells you it can't translate yet instead of quietly showing you the English. Everything in Exam Mode is quoted from the lecture — translating a quotation would break the link between a sentence and the moment it came from."
 
 ### Beat 9 — Privacy (20 seconds)
 
@@ -187,7 +227,13 @@ No, and deliberately. See [LIVE_TRANSCRIPTION_DECISION.md](LIVE_TRANSCRIPTION_DE
 It cannot compose a sentence the material does not contain: the composer quotes retrieved chunks. Citations are validated against the retrieved set before rendering, every chunk is required by a database constraint to carry an anchor, and every stored question and flashcard has a non-null source chunk. Below the confidence threshold the generator is never invoked.
 
 **"Can a professor upload the official slides?"**
-Not in this build. It is in the roadmap, not in the demo — see [MVP.md](../MVP.md).
+A professor portal is not in this build. A *student* can upload a `.pptx` and get slide-numbered citations out of it — worth trying during Beat 6.
+
+**"What file types can it read?"**
+PDF, plain text, DOCX and PPTX, plus audio, video and images stored as-is. PPTX is the interesting one: each slide is its own citation anchor, so an answer can say "slide 7".
+
+**"Does it have a community feed, or a voice assistant?"**
+Not yet — and the app says so on the screen rather than only in the pitch. See Beat 8b.
 
 ---
 

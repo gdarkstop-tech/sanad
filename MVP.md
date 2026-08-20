@@ -7,7 +7,7 @@ Scope, phases, and the demo narrative.
 Two capabilities in §1 did not ship as originally specified, and this document keeps the original wording so the change is visible rather than quietly edited away:
 
 - **Capability 1, live transcription** → delivered as **offline recording with automatic transcription after upload**. The reasoning, and what would reverse it, is in [docs/LIVE_TRANSCRIPTION_DECISION.md](docs/LIVE_TRANSCRIPTION_DECISION.md).
-- **Capability 14, on-demand translation** → not built. Language is stored per transcript segment, so the data is there; the surface is not.
+- **Capability 14, on-demand translation** → the language *selection* surface is built and states honestly that content stays in the language of the lecture; no translation is generated, because translating an extracted quotation would break the link between a sentence and its timestamp. See [docs/FEATURE_MATRIX.md](docs/FEATURE_MATRIX.md) B3.
 
 ---
 
@@ -255,7 +255,7 @@ Items 3, 4, and 5 are release gates. They are the product's central claim, and a
 
 | # | Item | State |
 |---|---|---|
-| 1 | Thirteen capabilities end to end | Met, except live transcription (delivered as recording-first) and translation (not built) |
+| 1 | Thirteen capabilities end to end | Met, except live transcription (delivered as recording-first) and translation (selection only) |
 | 2, 2a | Course-agnostic on two unrelated disciplines | Met — `pnpm check:course-agnostic`, and the seeded demo carries two unrelated subjects |
 | 3 | Zero fabricated answers | Met on the test set: the generator is not invoked below the confidence threshold, and composition quotes retrieved chunks |
 | 4 | Zero unresolvable citations | Met — citations are validated against the retrieved set before rendering; `content_chunks_anchor_ck` makes an unanchored chunk unstorable |

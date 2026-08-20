@@ -54,7 +54,8 @@ Read them in that order. `ARCHITECTURE.md` §11 records the decisions taken and 
 | Document | Contents |
 |---|---|
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, migrations, tests |
-| [docs/DEMO.md](docs/DEMO.md) | The competition demo: setup, reset, nine beats, expected questions |
+| [docs/FEATURE_MATRIX.md](docs/FEATURE_MATRIX.md) | Every feature, verified against the code: implemented, partial, preview, or future |
+| [docs/DEMO.md](docs/DEMO.md) | The competition demo: setup, reset, the beats, expected questions |
 | [docs/LIVE_TRANSCRIPTION_DECISION.md](docs/LIVE_TRANSCRIPTION_DECISION.md) | Why there is no live transcription, and what would reverse that |
 | [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md) | Lectures, storage, upload, extraction (delivered) |
 | [benchmarks/asr/README.md](benchmarks/asr/README.md) | Benchmark harness — implemented, awaiting audio |
@@ -68,6 +69,7 @@ PostgreSQL 16 + pgvector as the single source of truth · Drizzle as the sole ow
 | Capability | Implementation | Cost |
 |---|---|---|
 | Speech recognition | `AsrProvider` — fixture for development, `whisper.cpp` for a real binary | $0, local |
+| Document extraction | unpdf for PDF, fflate for DOCX/PPTX — no converter binary, no service | $0, local |
 | Embeddings | `Xenova/paraphrase-multilingual-MiniLM-L12-v2`, int8 ONNX, 384-d, in process on CPU | $0, local |
 | Retrieval | Postgres full-text OR `to_tsquery` + pgvector cosine, fused with reciprocal rank | $0 |
 | Answers | Extractive composition from retrieved chunks — quotes, never paraphrase | $0, no LLM |
@@ -105,19 +107,27 @@ Written to be checkable. Every "implemented" row below has a command that demons
 | Offline recording queue: resume by byte offset, no duplicate on retry, survives app restart | `offline-queue.test.ts` (29 tests) |
 | Streaming SHA-256 on device, matching the server's digest | `offline-queue.test.ts`, checked against `node:crypto` |
 | One student cannot reach another's courses, recordings, materials, search or AI context | `isolation.test.ts` (21 tests) and `pnpm verify:isolation <url>` (15 checks, live) |
-| Course-agnostic: no subject term in application code | `pnpm check:course-agnostic` (fails CI) |
+| Course-agnostic: no subject term in application code | `pnpm check:course-agnostic` (fails CI) — it has caught two real leaks so far |
+| Student profile: university, faculty, department, academic year | `profile.test.ts` (17) |
+| Course archiving and folders | `organization.test.ts` (11) |
+| DOCX and **slide-anchored** PPTX ingestion | `office.test.ts` (15) |
+| Schedule integration: university, work, gym, commitments, exam dates | `coach.test.ts`, and the seeded week produces **zero Monday sessions** against a shift |
+| The interactive UI actually works after hydration | `pnpm verify:ui <url>` — 25 checks in a real browser |
 | The Expo app compiles and bundles | `cd apps/mobile && pnpm exec tsc --noEmit && pnpm exec expo export --platform android` |
 
-229 TypeScript tests, 55 Python tests, a clean typecheck and a clean production build.
+272 TypeScript tests, 55 Python tests, a clean typecheck and a clean production build.
+
+Feature-by-feature detail, including what is *not* built: **[docs/FEATURE_MATRIX.md](docs/FEATURE_MATRIX.md)**.
 
 ### Implemented but not guaranteed
 
 | Thing | What is true | What is not |
 |---|---|---|
-| **The mobile app** | 13 screens, typechecks against real Expo and React Native types, bundles to a 2.62 MB Hermes bundle; its queue logic is covered by 29 Node tests | **It has not been run on a physical device or simulator.** Permissions, audio capture, and background behaviour are unverified in practice |
+| **The mobile app** | 15 screens, typechecks against real Expo and React Native types, bundles to a 2.65 MB Hermes bundle; its queue logic is covered by 29 Node tests | **It has not been run on a physical device or simulator.** Permissions, audio capture, and background behaviour are unverified in practice |
 | **Real speech recognition** | `WhisperCppProvider` spawns a real binary and detects its own availability | It has not been run against real lecture audio here, and `whisper-cli` is not installed in this environment |
 | **Answer quality** | Extractive answers cannot state something the source does not say | They are quotations, not prose. They will read as quotations |
 | **Arabic handling** | Normalization is shared by the TypeScript and Python code paths and checked against the same vectors | Dialect coverage has not been measured on real audio |
+| **Study-content language** | Arabic, English and Chinese can be selected, and the UI says content stays in the language of the lecture | **Nothing is translated.** The provider throws rather than passing text through, so no path can claim a translation that did not happen |
 
 ### Not implemented
 
@@ -125,7 +135,10 @@ Written to be checkable. Every "implemented" row below has a command that demons
 |---|---|
 | **A chosen ASR engine** | The benchmark has no audio to run on. **Benchmark pending real audio** — no engine measured, no winner chosen. [ASR_BENCHMARK.md](ASR_BENCHMARK.md) §10 |
 | **Live transcription** | Deliberate. A live tier has to clear a real-time factor nobody has measured. [docs/LIVE_TRANSCRIPTION_DECISION.md](docs/LIVE_TRANSCRIPTION_DECISION.md) |
-| **On-demand translation UI** | The pipeline stores language per segment; the translation surface is not built |
+| **Translation generation** | Language *selection* is built and honest about its limits; no translation model runs at $0 for Arabic↔English↔Chinese technical text. Translating an extracted quotation would also break the link between a sentence and its timestamp |
+| **AI Voice Tutor** | Preview only. It must route through the same retrieval and refusal as Ask Sanad when built — voice is an input shell, never a second answering engine |
+| **YouTube URL import** | Preview only. Uploading a video file works; importing from a URL needs reliable audio extraction and a licence position |
+| **Sanad Community** | Preview only. A social layer needs moderation, abuse handling and a privacy review before it touches student work |
 | **Professor and TA portals, community features, AI whiteboard, gamification** | Out of scope until the core is stable. [MVP.md](MVP.md) |
 | **OCR for scanned PDFs** | A scanned PDF is reported as such, with a message the student can act on, rather than silently producing nothing |
 | **S3-compatible object storage** | `StorageProvider` exists so this is a provider swap rather than a rewrite, but only `LocalDiskStorage` is implemented |

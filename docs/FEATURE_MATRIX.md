@@ -66,7 +66,7 @@ Counts are at the end.
 | **Tables** | `student_profiles` (university, faculty, department, academic year, major, student number), `users` (name, email, locale, timezone) |
 | **Mobile** | Yes | 
 | **Web** | Yes |
-| **Tests** | `profile.test.ts` |
+| **Tests** | `profile.test.ts` (17) |
 | **Remaining** | None. |
 
 ### A5. Courses — student-created, student-owned, course-agnostic
@@ -92,7 +92,7 @@ Counts are at the end.
 | **Files** | `courses.ts` → `setCourseArchived`; migration `0005_phase8_organization.sql` |
 | **Endpoints** | `POST /api/v1/courses/{id}/archive` |
 | **Tables** | `course_offerings.archived_at` |
-| **Tests** | `organization.test.ts` |
+| **Tests** | `organization.test.ts` (11) |
 | **Remaining** | None. |
 
 ### A7. Lectures
@@ -253,11 +253,11 @@ Counts are at the end.
 |---|---|
 | **User value** | A plan that ignores a Monday shift is not a plan. |
 | **Status** | **Implemented** (this pass) |
-| **Files** | `apps/web/components/ScheduleEditor.tsx`, `apps/mobile/app/(tabs)/coach.tsx`, `services/coach.ts` → `readAvailability`, `listCommitments`, `addCommitment`, `removeCommitment` |
+| **Files** | `apps/web/components/ScheduleEditor.tsx`, `apps/web/app/(app)/plan/page.tsx`, `apps/mobile/app/(tabs)/coach.tsx`, `services/coach.ts` → `readAvailability`, `listCommitments`, `addCommitment`, `removeCommitment`, `listExamDates` |
 | **Endpoints** | `GET`/`PUT /api/v1/me/availability`, `GET`/`POST /api/v1/me/commitments`, `DELETE /api/v1/me/commitments/{id}`, `GET`/`POST /api/v1/courses/{id}/exam-dates` |
 | **Tables** | `study_availability` (`kind`: study \| work \| gym \| class \| sleep \| other), `student_commitments` |
-| **Tests** | `coach.test.ts` — blocked windows and one-off commitments are both subtracted |
-| **Remaining** | None. Recurring commitments are weekly windows; one-off commitments are dated. |
+| **Tests** | `coach.test.ts` (20) and `profile.test.ts`; demonstrated end to end by the seeded week — university Monday 09:00–15:00 plus work 16:00–21:00 produces **zero Monday sessions**, and a Wednesday gym window pushes study to 20:00 |
+| **Remaining** | None. Recurring commitments are weekly windows; one-off commitments are dated. Both are subtracted before anything is scheduled. |
 
 ### A22. Academic memory / mastery
 
@@ -302,7 +302,7 @@ Counts are at the end.
 | **Endpoints** | `PATCH /api/v1/lectures/{id}`, `PATCH /api/v1/materials/{id}`, `GET /api/v1/courses/{id}/folders` |
 | **Tables** | `lectures.folder`, `materials.folder` — a nullable text label, deliberately not a tree |
 | **Web** | Yes — lectures group by folder | **Mobile** | Yes — folder shown per lecture |
-| **Tests** | `organization.test.ts` |
+| **Tests** | `organization.test.ts` (11) |
 | **Remaining** | Nesting is out of scope on purpose. |
 
 ### B2. DOCX and PPTX ingestion
@@ -313,7 +313,7 @@ Counts are at the end.
 | **Status** | **Implemented** |
 | **Files** | `packages/core/src/ingestion/office.ts`, wired in `extract.ts` |
 | **Anchors** | PPTX → **`slideNo`** (one unit per slide). DOCX → `charStart`/`charEnd` per paragraph block. |
-| **Tests** | `office.test.ts` — real generated files, slide numbering, encrypted/legacy formats rejected with an actionable message |
+| **Tests** | `office.test.ts` (15) — real generated files parsed by the real extractor, slide 10 ordered after slide 9, legacy `.doc` refused with an actionable message |
 | **Remaining** | Legacy binary `.doc`/`.ppt` are refused, not silently mangled. |
 
 ### B3. Study-content language selection
@@ -321,9 +321,21 @@ Counts are at the end.
 | | |
 |---|---|
 | **Status** | **Partial — selection implemented, translation not built** |
-| **Files** | `apps/web/components/ExamMode.tsx`, `apps/mobile/app/course/[id]/exam.tsx`, `packages/core/src/services/language.ts` |
+| **Files** | `packages/core/src/services/language.ts`, `apps/web/components/ExamMode.tsx` |
 | **Tables** | `course_offerings.primary_language`, `secondary_languages`; `content_chunks.language`; `transcript_segments.primary_language` |
-| **Remaining** | The UI lets a student pick Arabic, English or Chinese and **says plainly** that generated study content is produced in the source language, because no translation model runs at $0 here. Source anchors are unaffected: nothing is translated, so nothing can be detached from its citation. |
+| **Remaining** | The UI lets a student pick Arabic, English or Chinese and **says plainly** that content stays in the language of the lecture, because no translation model runs at $0 here. `UnavailableTranslationProvider` throws rather than returning text unchanged, so no path can silently claim a translation happened. Source anchors are unaffected: nothing is translated, so nothing can be detached from its citation. Verified in the browser — selecting Chinese renders the notice. |
+
+---
+
+### B4. Course activity summary
+
+| | |
+|---|---|
+| **Status** | **Implemented** |
+| **Files** | `apps/web/components/CourseActivity.tsx` |
+| **Note** | Everything shown is **real**: the most recent lecture, the next exam and how many lectures are transcribed all come from tables that already exist. Where there is nothing to show it says so rather than filling the space with a placeholder. |
+
+---
 
 ---
 
@@ -336,7 +348,7 @@ No fake network requests. No fabricated processing. Each surface states what it 
 | | |
 |---|---|
 | **Status** | **UI only** |
-| **Files** | `apps/web/components/ComingSoon.tsx`, `apps/web/app/(app)/courses/[courseId]/page.tsx` |
+| **Files** | `apps/web/components/ComingSoon.tsx`, `apps/web/app/(app)/courses/[courseId]/page.tsx`, `apps/mobile/components/ui.tsx` |
 | **Copy** | "Add a lecture video or YouTube source and Sanad will turn it into searchable study material." |
 | **Why not now** | A scraper built for a demo breaks the week after. Terms-of-service and audio extraction both need real work. |
 | **Note** | Direct **video file upload** already works — the file is stored, and transcription runs when an engine is configured. Only URL import is deferred. |
@@ -346,6 +358,7 @@ No fake network requests. No fabricated processing. Each surface states what it 
 | | |
 |---|---|
 | **Status** | **UI only** |
+| **Files** | `apps/web/components/ComingSoon.tsx` → `RoadmapGrid`, shown on `/plan` |
 | **Copy** | "Ask Sanad about your lectures using your voice." |
 | **Why not now** | Speech-to-speech at $0 needs a local STT and TTS pair that has not been benchmarked. **No paid cloud dependency will be added for it.** |
 | **Architecture** | When built it must route through the same `ask()` path — same retrieval, same citations, same refusal gate. Voice is an input and output shell, never a second answering engine. |
@@ -355,20 +368,10 @@ No fake network requests. No fabricated processing. Each surface states what it 
 | | |
 |---|---|
 | **Status** | **UI only** |
-| **Files** | `apps/web/app/(app)/community/page.tsx`, `apps/mobile/app/(tabs)/community.tsx` |
+| **Files** | `apps/web/app/(app)/community/page.tsx`, `apps/mobile/app/(tabs)/community.tsx` (Community tab) |
 | **Copy** | "Ask, discuss, and learn with your university community." |
-| **Preview shows** | Posts, questions, TA answers, an AI reply clearly badged as AI — all static, deterministic sample content, visibly labelled as a preview |
+| **Preview shows** | Posts, questions, TA answers, an AI reply clearly badged as AI — all static sample content written into the page, visibly labelled as a preview. Sample courses are named generically ("One of your courses") rather than by subject: naming a discipline would put a subject into application code, which CI rejects, and would imply content exists for it |
 | **Why not now** | A social backend means moderation, abuse handling and privacy review. That is not a week of work, and shipping it half-done would be worse than not shipping it. |
-
-### C4. Course activity preview
-
-| | |
-|---|---|
-| **Status** | **UI only**, on real data where it exists |
-| **Files** | `apps/web/components/CourseActivity.tsx` |
-| **Note** | Recent lecture, next exam and last study activity are **real** — they come from tables that already exist. Announcements and discussion are labelled as preview. |
-
----
 
 ## D. FUTURE — not implemented, deliberately
 
@@ -385,12 +388,73 @@ No fake network requests. No fabricated processing. Each surface states what it 
 
 ---
 
+## Summary table
+
+| Feature | Status | Competition ready | Notes |
+|---|---|---|---|
+| Offline recording | Implemented | **Yes, with a caveat** | 29 tests: no-network capture, resume by byte offset, no duplicate on replay, app-restart recovery. **Not run on a physical device.** |
+| Upload / resume | Implemented | Yes | Resumable and idempotent on `clientRef`; wrong offset rejected rather than corrupting; checksum verified server-side |
+| Courses | Implemented | Yes | Student-created, student-owned, any subject. CI fails if a subject term reaches code |
+| Course archive | Implemented | Yes | Reversible, separate from delete, keeps all content |
+| Lecture archive | Implemented | Yes | Create, name, record, upload, transcript, timestamps, status, soft-delete |
+| PDF ingestion | Implemented | Yes | Page-anchored. Scanned PDFs reported with an actionable message |
+| DOCX ingestion | Implemented | Yes | Character-anchored; no page numbers claimed, because DOCX has none |
+| PPTX ingestion | Implemented | Yes | **Slide-anchored** — a citation can say "slide 7" |
+| Video ingestion | Partial | Yes, as upload | Video files upload and store; transcription runs when an ASR engine is configured |
+| YouTube import | Coming Soon | Preview only | UI states what it will do and that it is not available. No scraper |
+| Search | Implemented | Yes | Hybrid lexical + dense, RRF-fused, deep links to the second |
+| Ask Sanad | Implemented | Yes | Extractive composition over retrieved chunks |
+| Citations | Implemented | Yes | Validated against the retrieved set; unanchored chunks are unstorable |
+| Refusal | Implemented | Yes | Generator not invoked below threshold — API reports `generator: "none"`. Verified in the browser |
+| Flashcards | Implemented | Yes | Sourced, deduplicated, readable offline once downloaded |
+| Exam Mode | Implemented | Yes | Summary, key terms, emphasis, flashcards, sourced questions |
+| Study Coach | Implemented | Yes | Deterministic; no double-booking, enforced by a database `EXCLUDE` constraint |
+| Schedule integration | Implemented | Yes | University, work, gym, sleep, one-off commitments, exam dates — all subtracted before scheduling |
+| Student profile | Implemented | Yes | Name, email, university, faculty, department, academic year, major, student number |
+| Folders | Implemented | Yes | One label on lectures and materials; grouped headings, not a tree |
+| Voice Chat | Coming Soon | Preview only | Will route through the same retrieval and refusal. No paid dependency will be added for it |
+| Translation | Partial | Yes, honestly | Language selection works; the UI says content stays in the lecture's language. Nothing claims a translation that did not happen |
+| Community Feed | Coming Soon | Preview only | Static, inert, labelled. No social backend |
+| Course activity | Implemented | Yes | Real data only — recent lecture, next exam, how much is transcribed. Says so when there is nothing to show |
+| Mobile app | Implemented | **Yes, with a caveat** | 15 screens, typechecks and bundles (954 modules → 2.65 MB). **Not run on a physical device** |
+| Cross-student isolation | Implemented | Yes | 21 tests plus 15 live HTTP checks |
+
 ## Counts
 
 | Category | Count |
 |---|---|
-| **Fully implemented** | **26** |
-| **Partially implemented** | **6** — offline recording (not device-verified), offline content (not device-verified), transcription (no engine chosen), email verification (no delivery), language selection (no translation), Arabic handling (dialects unmeasured) |
-| **UI only (Coming Soon)** | **4** |
-| **Not implemented (future)** | **8** |
+| **Fully implemented** | **23** |
+| **Partially implemented** | **5** — offline recording and offline content (not device-verified), transcription (no engine chosen), email verification (no delivery), study-content language (selection only, no translation) |
+| **UI only (Coming Soon)** | **3** — AI Voice Tutor, YouTube import, Sanad Community |
+| **Not implemented (future)** | **8** — see section D |
 
+Counted from the sections above, not estimated: 23 rows marked **Implemented**, 5 **Partial**, 3 **UI only**, 8 future.
+
+## Verification
+
+Everything above was run, in this order, against a clean database:
+
+```
+TypeScript tests        272 passed (15 files)
+Python tests             55 passed
+Root typecheck            0 errors
+Mobile typecheck          0 errors
+Production build          clean
+Expo bundle               954 modules → 2.65 MB Hermes bundle
+Course-agnostic check     OK (25 seeded terms, none in code)
+Isolation over HTTP       15/15
+Browser UI checks         25/25, no console errors
+Clean migrate + seed      17 study sessions around a real week
+```
+
+New tests this pass: `office.test.ts` (15), `profile.test.ts` (17), `organization.test.ts` (11) — 43 in total, taking the suite from 229 to 272.
+
+## Known limitations
+
+1. **The mobile app has not run on a phone.** It typechecks against real Expo and React Native types and bundles to Hermes bytecode, and the queue underneath it has 29 Node tests — but audio capture, microphone permissions and background behaviour are unverified in practice.
+2. **No ASR engine has been chosen.** The benchmark harness is complete and self-tested; no lecture audio has been supplied, so **no engine has been measured**. `whisper-cli` is not installed in this environment.
+3. **Answers read as quotations, not prose.** That is what makes them incapable of stating something the source does not say. Worth setting as an expectation before a demo rather than discovering at the citation panel.
+4. **No mail delivery.** Verification tokens are generated and stored hashed; no SMTP transport is wired. This blocks public deployment, not the demo.
+5. **Arabic RTL has not been reviewed on a device.** Mixed-script segments store and serve correctly and are covered by tests; the visual rendering has not been checked by eye.
+6. **Not deployed.** Runs on a laptop against local PostgreSQL. HTTPS termination, secret management, backups and retention enforcement all remain.
+7. **Legacy `.doc` and `.ppt` are refused**, not converted. They are told what to do instead of being stored as binary noise.
