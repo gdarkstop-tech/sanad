@@ -4,7 +4,16 @@
 
 > **سند ليس مجرد تطبيق لتفريغ المحاضرات. سند رفيق أكاديمي متكامل يرافق الطالب من لحظة بدء المحاضرة وحتى انتهاء الامتحان.**
 
-**Current state: Phase 1 (foundation) implemented. Phases 2–11 not started.**
+**Current state: working MVP.** Accounts, courses, lectures, recordings, transcripts with
+Arabic/English code-switching, materials, unified search, grounded Q&A with citations and
+refusal, Exam Mode, academic memory, and a deterministic study coach — all running at **$0
+recurring cost** on a laptop with no GPU.
+
+```bash
+pnpm install && cp .env.example .env
+createdb sanad_dev && pnpm db:migrate && pnpm db:seed:demo
+pnpm dev     # then sign in with the account the seed prints
+```
 
 ---
 
@@ -40,7 +49,7 @@ Read them in that order. `ARCHITECTURE.md` §11 records the decisions taken and 
 | Document | Contents |
 |---|---|
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, migrations, tests |
-| [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md) | Next phase: lectures, storage, upload, extraction |
+| [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md) | Lectures, storage, upload, extraction (delivered) |
 | [benchmarks/asr/README.md](benchmarks/asr/README.md) | Benchmark harness — implemented, awaiting audio |
 
 ## Technology

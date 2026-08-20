@@ -48,6 +48,9 @@ Phase 2+ ones that are listed but unused, so the shape is known in advance.
 | `pnpm typecheck` | Whole workspace |
 | `pnpm db:generate` | Generate a migration from schema changes |
 | `pnpm db:migrate` | Apply migrations |
+| `pnpm db:seed` | Seed emphasis cue phrases (required for emphasis detection) |
+| `pnpm db:seed:demo` | Seed a full demo account: two unrelated courses, lectures with transcripts, PDFs, answer history, exam date and a study plan |
+| `pnpm test:asr` | ASR benchmark harness tests |
 | `pnpm check:course-agnostic` | Fail if a seeded subject term leaked into code |
 
 ## Tests
@@ -108,6 +111,17 @@ running server.
 
 ## What exists today
 
-Phase 1 only: accounts, sessions, profiles, and student-owned courses.
-Lectures, materials, transcription, search, and everything AI arrive in later
-phases — see [MVP.md](../MVP.md).
+The full MVP loop: accounts and student-owned courses; lectures with recordings
+transcribed through a provider-abstracted ASR layer; material upload with
+resumable, idempotent uploads; extraction into page- and timestamp-anchored
+chunks; hybrid search; grounded Q&A that cites its sources or refuses; Exam
+Mode; academic memory; and a deterministic study coach.
+
+**Everything runs at $0 recurring cost.** Embeddings are a small ONNX model in
+process; ASR falls back to a fixture when whisper.cpp is not installed;
+summaries, flashcards and questions are extractive and need no model at all.
+Each sits behind a provider interface, so a local or paid model is an upgrade
+rather than a dependency.
+
+**Not built yet:** client-side offline recording (the server side is complete
+and tested), and the Expo mobile app. See the final report for details.
