@@ -5,6 +5,8 @@ exists, using a transcriber that is perfect and one that fails in each way the
 gates are meant to catch.
 """
 
+import contextlib
+import io
 import json
 import pathlib
 import tempfile
@@ -158,6 +160,36 @@ class BudgetGate(unittest.TestCase):
     def test_every_declared_candidate_is_free(self):
         for engine in engines.CANDIDATES:
             engines.assert_free(engine)
+
+
+class PendingStatus(unittest.TestCase):
+    """The benchmark must never present a result it did not measure."""
+
+    def test_status_reports_pending_when_no_audio_exists(self):
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            code = run.main(["--status"])
+        output = buffer.getvalue()
+
+        if run.DEFAULT_MANIFEST.exists():
+            self.skipTest("a real dataset is present; this asserts the empty case")
+
+        self.assertEqual(code, 0)
+        self.assertIn("Benchmark pending real audio.", output)
+        # No winner, no score: nothing here may look like a measurement.
+        self.assertNotIn("WER:", output)
+
+    def test_a_missing_manifest_is_a_refusal_not_a_crash(self):
+        errors = io.StringIO()
+        with contextlib.redirect_stderr(errors):
+            code = run.main(["--dataset", "no/such/manifest.json", "--engine", "whispercpp-small"])
+        self.assertEqual(code, 2)
+        self.assertIn("Cannot run the benchmark", errors.getvalue())
+
+    def test_no_result_files_are_written_without_a_run(self):
+        results = pathlib.Path(run.__file__).parent / "results"
+        reports = [p for p in results.glob("**/report.json")]
+        self.assertEqual(reports, [], "a report exists but no benchmark was run")
 
 
 if __name__ == "__main__":

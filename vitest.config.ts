@@ -17,6 +17,8 @@ export default defineConfig({
       '@sanad/db': path.join(root, 'packages/db/src/index.ts'),
       '@sanad/core': path.join(root, 'packages/core/src/index.ts'),
       '@sanad/contracts': path.join(root, 'packages/contracts/src/index.ts'),
+      '@sanad/offline/testing': path.join(root, 'packages/offline/src/testing.ts'),
+      '@sanad/offline': path.join(root, 'packages/offline/src/index.ts'),
     },
   },
 });

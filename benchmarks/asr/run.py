@@ -273,21 +273,53 @@ def run_with(
     return report
 
 
+DEFAULT_MANIFEST = pathlib.Path(__file__).parent / "dataset" / "manifest.json"
+
+
+def cmd_status(_args: argparse.Namespace) -> int:
+    """Reports whether a result exists — and says so plainly when none does.
+
+    The point of this command is that there is no way to read a number here
+    that no audio produced. An unrun benchmark reports as unrun.
+    """
+    if not DEFAULT_MANIFEST.exists():
+        print("Benchmark pending real audio.")
+        print()
+        print(f"No dataset manifest at {DEFAULT_MANIFEST}.")
+        print("The harness is complete and self-tested (`python3 run.py --self-test`),")
+        print("but it has not been run, so there is no winner and no WER to quote.")
+        print("See ANNOTATION_GUIDE.md for how to add consented lecture audio.")
+        return 0
+
+    data = dataset_module.load(DEFAULT_MANIFEST)
+    print(dataset_module.summarize(data))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Sanad ASR benchmark")
     parser.add_argument("--check", action="store_true", help="list engines and availability")
     parser.add_argument("--self-test", action="store_true", help="verify the metrics")
+    parser.add_argument("--status", action="store_true", help="report whether a result exists")
     parser.add_argument("--dataset", help="path to dataset manifest")
     parser.add_argument("--engine", help="engine key (see --check)")
     parser.add_argument("--out", default="results", help="output directory")
     args = parser.parse_args(argv)
 
-    if args.check:
-        return cmd_check(args)
-    if args.self_test:
-        return cmd_self_test(args)
-    if args.dataset and args.engine:
-        return cmd_run(args)
+    try:
+        if args.check:
+            return cmd_check(args)
+        if args.self_test:
+            return cmd_self_test(args)
+        if args.status:
+            return cmd_status(args)
+        if args.dataset and args.engine:
+            return cmd_run(args)
+    except (dataset_module.DatasetError, KeyError, ValueError) as error:
+        # A stack trace here would read as a crash. This is a refusal to score.
+        print(f"Cannot run the benchmark: {error}", file=sys.stderr)
+        return 2
+
     parser.print_help()
     return 1
 

@@ -22,9 +22,11 @@
       "@sanad/db/*": ["packages/db/src/*"],
       "@sanad/core": ["packages/core/src/index.ts"],
       "@sanad/core/*": ["packages/core/src/*"],
-      "@sanad/contracts": ["packages/contracts/src/index.ts"]
+      "@sanad/contracts": ["packages/contracts/src/index.ts"],
+      "@sanad/offline": ["packages/offline/src/index.ts"],
+      "@sanad/offline/testing": ["packages/offline/src/testing.ts"]
     }
   },
   "include": ["packages/*/src/**/*", "apps/web/**/*", "tests/**/*", "*.ts"],
-  "exclude": ["node_modules", "**/node_modules", "**/.next", "**/dist"]
+  "exclude": ["node_modules", "**/node_modules", "**/.next", "**/dist", "apps/mobile"]
 }

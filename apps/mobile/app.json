@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Sanad",
+    "slug": "sanad",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "sanad",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Sanad records lectures so it can transcribe them for you. Recording works without an internet connection."
+      }
+    },
+    "android": {
+      "permissions": ["RECORD_AUDIO", "INTERNET", "ACCESS_NETWORK_STATE"]
+    },
+    "plugins": ["expo-router"],
+    "extra": {
+      "apiUrl": "http://localhost:3000"
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 Evaluation protocol for speech recognition, run in **Phase 0 — before the lecture pipeline is built**.
 
-**Status:** budget set to **$0 recurring**; candidates are free/open-source (§5). Harness implemented and self-tested; awaiting audio.
+**Status: Benchmark pending real audio.** The harness is implemented and self-tested (55 tests); no lecture audio has been supplied, so **no engine has been measured and no winner has been chosen**. See §10.
 
 ---
 
@@ -267,3 +267,39 @@ The report must state what was measured, on what audio, with which configuration
 4. **Thresholds fixed in advance**, so a result cannot be reinterpreted to fit a preferred conclusion.
 5. **Both sides measured.** Biasing and correction are evaluated by their delta against the same baseline, so their real contribution is known rather than assumed.
 6. **Consent and retention.** Speaker permission is recorded before use, and benchmark audio follows the same retention policy as student recordings ([ARCHITECTURE.md](ARCHITECTURE.md) §11.5). This needs an answer before collection begins.
+
+---
+
+## 10. Result
+
+**Benchmark pending real audio.**
+
+As of this writing, `benchmarks/asr/dataset/` contains only `manifest.example.json`. No consented lecture recordings have been supplied, so the benchmark has not been run.
+
+That means, precisely:
+
+- **No engine has been measured.** There is no WER, no term-F1, no translation-leak rate, and no real-time factor for any candidate on Sanad's audio.
+- **No winner has been chosen.** §5 lists candidates and §7 fixes the thresholds; neither is a result.
+- **No number in this repository is a benchmark number.** Any figure quoted anywhere about transcription accuracy would be invented.
+
+What *has* been verified, and can be re-checked:
+
+| Claim | How to verify |
+|---|---|
+| The metrics are correct | `cd benchmarks/asr && python3 run.py --self-test` — 55 tests |
+| The harness scores a full run end to end | `test_run.py` drives it with synthetic transcribers, including engines that fail each gate |
+| The Arabic/English normalizer agrees across languages | `shared/text-normalization-vectors.json`, run by both the TypeScript and Python normalizers |
+| No paid engine can be selected | `engines.assert_free` raises; asserted for every declared candidate |
+| Nothing has been run | `python3 run.py --status` prints this section's headline; a test asserts no `report.json` exists |
+
+### What unblocks it
+
+1. Roughly 30 minutes of consented lecture audio from two unrelated disciplines (§3).
+2. Reference transcripts annotated per [ANNOTATION_GUIDE.md](benchmarks/asr/ANNOTATION_GUIDE.md).
+3. One installed engine — `python3 run.py --check` reports 1 of 10 present in this environment (`transformers-js-base`); the rest need `whisper-cli`, `faster_whisper`, or `vosk` on the machine.
+
+Then `python3 run.py --dataset dataset/manifest.json --engine <key>` produces `results/report.json`, and §7's thresholds — fixed in advance, before any result existed — decide the outcome.
+
+### What was decided without it
+
+The MVP does not wait on this benchmark, because it does not depend on it. Transcription sits behind `AsrProvider` ([AI_PIPELINE.md](AI_PIPELINE.md)), with a fixture provider for development and `WhisperCppProvider` for a real binary. Choosing an engine later is a configuration change, not a rewrite — which is the whole reason the abstraction exists.
