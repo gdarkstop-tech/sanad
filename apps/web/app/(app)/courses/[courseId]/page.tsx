@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { listExamDates, listLectures, listMaterials, readCourse } from '@sanad/core';
+import { asrCapability, listExamDates, listLectures, listMaterials, readCourse } from '@sanad/core';
 import { db } from '@sanad/db';
 import { AppNav } from '@/components/AppNav';
 import { AskPanel } from '@/components/AskPanel';
@@ -28,6 +28,7 @@ export default async function CoursePage({
   const lectures = await listLectures(db(), subject, courseId);
   const materials = await listMaterials(db(), subject, courseId);
   const exams = await listExamDates(db(), subject, courseId);
+  const asr = await asrCapability();
 
   const upcoming = exams.filter((exam) => exam.examAt.getTime() >= Date.now());
   const lastLecture = lectures[0] ?? null;
@@ -75,6 +76,7 @@ export default async function CoursePage({
         />
 
         <CourseWorkspace
+          realTranscription={asr.isReal}
           courseId={courseId}
           lectures={lectures.map((l) => ({
             id: l.id,

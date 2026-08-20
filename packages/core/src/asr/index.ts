@@ -340,6 +340,27 @@ export async function resolveAsrProvider(): Promise<AsrProvider> {
   return cachedProvider;
 }
 
+/**
+ * What transcription this installation can actually do.
+ *
+ * Server-rendered pages call this so a promise made at the point of action —
+ * "upload audio and it will be transcribed" — is true where it is shown. With
+ * no engine installed the pipeline still runs and produces placeholder text,
+ * which is useful for development and misleading if offered as transcription.
+ */
+export async function asrCapability(): Promise<{
+  provider: string;
+  model: string;
+  isReal: boolean;
+}> {
+  const provider = await resolveAsrProvider();
+  return {
+    provider: provider.name,
+    model: provider.model,
+    isReal: !(provider instanceof FixtureAsrProvider),
+  };
+}
+
 /** Test seam. */
 export function setAsrProvider(provider: AsrProvider | undefined): void {
   cachedProvider = provider;

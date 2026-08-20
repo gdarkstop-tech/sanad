@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { formatTimestamp, readLecture } from '@sanad/core';
+import { asrCapability, formatTimestamp, readLecture } from '@sanad/core';
 import { db, lectureEmphasis, transcriptSegments } from '@sanad/db';
 import { AskPanel } from '@/components/AskPanel';
 import { TranscriptSourceNote } from '@/components/TranscriptSourceNote';
@@ -23,6 +23,7 @@ export default async function LecturePage({
   const { lectureId } = await params;
 
   const lecture = await readLecture(db(), subjectOf(user), lectureId);
+  const asr = await asrCapability();
   const segments = await db()
     .select()
     .from(transcriptSegments)
@@ -70,7 +71,9 @@ export default async function LecturePage({
           {segments.length === 0 ? (
             <p className="muted">
               No transcript yet. Upload a recording for this lecture and it will be
-              transcribed automatically.
+              {asr.isReal
+                ? ' transcribed automatically.'
+                : ' processed — though with no speech-recognition engine installed, the transcript will be placeholder text.'}
             </p>
           ) : (
             <ol className="transcript">

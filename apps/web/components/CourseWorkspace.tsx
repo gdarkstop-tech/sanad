@@ -32,10 +32,13 @@ export function CourseWorkspace({
   courseId,
   lectures,
   materials,
+  realTranscription,
 }: {
   courseId: string;
   lectures: LectureRow[];
   materials: MaterialRow[];
+  /** False when no speech-recognition engine is installed on the server. */
+  realTranscription: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -201,8 +204,19 @@ export function CourseWorkspace({
       <section className="card" style={{ marginBlock: '1.5rem' }}>
         <h2>Upload material or recording</h2>
         <p className="muted" style={{ marginBlockStart: 0 }}>
-          PDF, text, images, audio, video. Audio attached to a lecture is transcribed automatically.
+          PDF, text, DOCX, PPTX, images, audio, video.{' '}
+          {realTranscription
+            ? 'Audio attached to a lecture is transcribed automatically.'
+            : null}
         </p>
+        {realTranscription ? null : (
+          <p className="synthetic-note">
+            <strong>No speech-recognition engine is installed on this server.</strong> Audio
+            you attach to a lecture will be stored untouched, but Sanad will fill the
+            transcript with placeholder sentences rather than transcribing it. Documents are
+            unaffected — PDF, DOCX, PPTX and text are read for real.
+          </p>
+        )}
         <form className="stack" onSubmit={upload}>
           <div className="field">
             <label htmlFor="file">File</label>
