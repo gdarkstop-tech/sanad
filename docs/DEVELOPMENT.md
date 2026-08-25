@@ -39,6 +39,37 @@ pnpm dev                      # http://localhost:3000
 No local PostgreSQL? `pnpm setup:docker` starts `pgvector/pgvector:pg16` in one
 container and continues. It is the only container, and there is nothing paid in it.
 
+### If Docker will not run — the third path
+
+Docker needs hardware virtualisation and WSL 2. On some Windows laptops that
+fails and is not quickly fixable, which is a bad thing to discover the night
+before a deadline.
+
+Sanad does not care *where* PostgreSQL is, only that it has `pgvector`. Any
+reachable database works — including a free hosted one. There are **no code
+changes**: point `DATABASE_URL` at it and run the same commands.
+
+```bash
+# .env
+DATABASE_URL=postgres://user:password@host/dbname?sslmode=require
+
+pnpm db:migrate      # creates the extensions and the schema
+pnpm db:seed:demo    # the demo account
+pnpm dev
+```
+
+The provider must allow `CREATE EXTENSION vector` and `CREATE EXTENSION
+btree_gist` — the free tiers of the common hosted Postgres services do. No
+paid plan is required, and the connection string is the only thing that
+changes.
+
+**Verified:** migrate and seed were run against a database the project did not
+create, reached only by URL, with no code changes.
+
+**The trade-off is real:** a hosted database needs working internet during the
+demo. A local one cannot be broken by venue Wi-Fi. Prefer local; keep this in
+reserve.
+
 **One `.env` at the repository root serves every package.** Tools run from
 different working directories — drizzle-kit from `packages/db`, vitest from the
 root, Next from `apps/web` — so the file is located by walking up from the
