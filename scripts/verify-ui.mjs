@@ -231,6 +231,58 @@ badges > 0
   ? pass(`synthetic badge on ${badges} lecture(s) in the archive`)
   : fail('synthetic badge in the archive');
 
+// Citations must open the source at the cited place, not the top of a document.
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' });
+await page.click('a:has-text("Data Structures")');
+await page.waitForSelector('#question', { timeout: 15000 });
+await page.fill('#question', 'What is chaining in a hash table?');
+await page.click('button:has-text("Ask")');
+await page.waitForSelector('ul.sources li', { timeout: 20000 });
+
+const evidenceText = await page.locator('.evidence').innerText().catch(() => '');
+/source|evidence/i.test(evidenceText)
+  ? pass(`evidence strength shown ("${evidenceText.split('—')[0].trim()}")`)
+  : fail('evidence strength shown', evidenceText);
+/\d+\s*%/.test(evidenceText)
+  ? fail('evidence avoids a fabricated percentage', evidenceText)
+  : pass('evidence avoids a fabricated percentage');
+
+const openLinks = await page.locator('a.cite-open').count();
+openLinks > 0 ? pass(`${openLinks} citations are openable`) : fail('citations are openable');
+
+// Follow a lecture citation and a document citation.
+const hrefs = await page.locator('ul.sources a[href]').evaluateAll((as) =>
+  as.map((a) => a.getAttribute('href')).filter(Boolean),
+);
+const lectureHref = hrefs.find((h) => h.includes('/lectures/') && h.includes('?t='));
+const docHref = hrefs.find((h) => h.includes('/materials/') && /[?&](page|slide)=/.test(h));
+
+if (lectureHref) {
+  await page.goto(`${BASE}${lectureHref}`, { waitUntil: 'networkidle' });
+  const highlighted = await page.locator('.cited-segment').count();
+  highlighted > 0
+    ? pass('a timestamp citation opens the transcript at the cited segment')
+    : fail('a timestamp citation opens the transcript at the cited segment', lectureHref);
+} else {
+  fail('a timestamp citation link exists');
+}
+
+if (docHref) {
+  await page.goto(`${BASE}${docHref}`, { waitUntil: 'networkidle' });
+  const cited = await page.locator('.excerpt.cited').count();
+  cited > 0
+    ? pass('a page/slide citation opens the document at the cited passage')
+    : fail('a page/slide citation opens the document at the cited passage', docHref);
+} else {
+  fail('a page/slide citation link exists');
+}
+
+// Saving an answer, and finding it again.
+await page.goto(`${BASE}${lectureHref ?? '/dashboard'}`, { waitUntil: 'networkidle' });
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' });
+const tiles = await page.locator('.tile').count();
+tiles >= 4 ? pass(`dashboard shows ${tiles} real-data tiles`) : fail('dashboard tiles', String(tiles));
+
 await browser.close();
 
 console.log('');

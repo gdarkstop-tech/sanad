@@ -1,8 +1,9 @@
-import { and, count, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNull } from 'drizzle-orm';
 import {
   academicTerms,
   courseOfferings,
   lectures,
+  materialChunks,
   materials,
   uploadSessions,
   type Database,
@@ -451,4 +452,56 @@ async function retentionFor(
     .limit(1);
 
   return row?.endsOn ? new Date(`${row.endsOn}T23:59:59Z`) : null;
+}
+
+export interface MaterialExcerpt {
+  id: string;
+  seq: number;
+  text: string;
+  pageNo: number | null;
+  slideNo: number | null;
+  charStart: number | null;
+  /** "page 7", "slide 12", or null when the anchor is a character offset. */
+  label: string | null;
+}
+
+/**
+ * A document's extracted text, in order, with its citation anchors.
+ *
+ * This exists because a citation has to be checkable. Sanad tells a student
+ * "week-4-slides.pdf — page 1" and, until now, clicking that led to a 404: the
+ * link was generated but no page ever rendered it. A citation nobody can open
+ * is a claim, not evidence.
+ */
+export async function readMaterialExcerpts(
+  db: Database,
+  subject: Subject,
+  materialId: string,
+): Promise<{ material: typeof materials.$inferSelect; excerpts: MaterialExcerpt[] }> {
+  // Ownership is resolved here, so the excerpts below cannot outrun it.
+  const material = await getMaterial(db, subject, materialId);
+
+  const rows = await db
+    .select()
+    .from(materialChunks)
+    .where(eq(materialChunks.materialId, material.id))
+    .orderBy(asc(materialChunks.seq));
+
+  return {
+    material,
+    excerpts: rows.map((row) => ({
+      id: row.id,
+      seq: row.seq,
+      text: row.text,
+      pageNo: row.pageNo,
+      slideNo: row.slideNo,
+      charStart: row.charStart,
+      label:
+        row.pageNo !== null
+          ? `page ${row.pageNo}`
+          : row.slideNo !== null
+            ? `slide ${row.slideNo}`
+            : null,
+    })),
+  };
 }

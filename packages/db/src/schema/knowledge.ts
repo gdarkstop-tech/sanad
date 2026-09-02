@@ -386,6 +386,15 @@ export const qaMessages = pgTable(
     retrievedChunkIds: text('retrieved_chunk_ids').array().notNull().default([]),
     generator: text('generator').notNull(),
     latencyMs: integer('latency_ms'),
+    /**
+     * Set when the student bookmarks this answer.
+     *
+     * A column rather than a table: every answer is already stored here with
+     * its retrieved set, and its validated citations already point at this row.
+     * A separate saved-answers table would duplicate all of that and give the
+     * two copies a way to disagree.
+     */
+    savedAt: timestamp('saved_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('qa_messages_user_idx').on(t.userId, t.createdAt)],

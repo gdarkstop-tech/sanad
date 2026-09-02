@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { asrCapability, formatTimestamp, readLecture } from '@sanad/core';
 import { db, lectureEmphasis, transcriptSegments } from '@sanad/db';
 import { AskPanel } from '@/components/AskPanel';
+import { JumpToAnchor } from '@/components/JumpToAnchor';
 import { TranscriptSourceNote } from '@/components/TranscriptSourceNote';
 import { currentUser, subjectOf } from '@/lib/auth';
 
@@ -15,12 +16,18 @@ export const dynamic = 'force-dynamic';
  */
 export default async function LecturePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ lectureId: string }>;
+  searchParams: Promise<{ t?: string }>;
 }) {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const { lectureId } = await params;
+  // Citations link here as `?t=763`. Reading it is what makes a timestamp
+  // citation land on the sentence rather than at the top of the transcript.
+  const { t } = await searchParams;
+  const targetSecond = t !== undefined && /^\d+$/.test(t) ? Number(t) : null;
 
   const lecture = await readLecture(db(), subjectOf(user), lectureId);
   const asr = await asrCapability();
@@ -49,6 +56,7 @@ export default async function LecturePage({
       </p>
 
       <TranscriptSourceNote source={lecture.transcription} />
+      {targetSecond !== null ? <JumpToAnchor anchor={`t-${targetSecond}`} /> : null}
 
       <div className="stack-lg">
         {emphasis.length > 0 ? (
@@ -78,7 +86,13 @@ export default async function LecturePage({
           ) : (
             <ol className="transcript">
               {segments.map((segment) => (
-                <li key={segment.id} id={`t-${Math.floor(segment.tStartMs / 1000)}`}>
+                <li
+                  key={segment.id}
+                  id={`t-${Math.floor(segment.tStartMs / 1000)}`}
+                  className={
+                    Math.floor(segment.tStartMs / 1000) === targetSecond ? 'cited-segment' : undefined
+                  }
+                >
                   <span className="timestamp">{formatTimestamp(segment.tStartMs)}</span>
                   <span
                     className={segment.confidenceBand === 'low' ? 'seg uncertain' : 'seg'}

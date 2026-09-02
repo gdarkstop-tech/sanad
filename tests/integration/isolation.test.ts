@@ -18,6 +18,7 @@ import {
   generateExam,
   getCourseFor,
   listCourses,
+  listSavedAnswers,
   getLecture,
   getMaterial,
   listLectures,
@@ -28,11 +29,13 @@ import {
   readLecture,
   retrieve,
   runPending,
+  setAnswerSaved,
   seedEmphasisCues,
   setAsrProvider,
   setEmbeddingProvider,
   setStorage,
   startAttempt,
+  studentOverview,
   submitAnswer,
   updateCourse,
   uploadDirect,
@@ -305,6 +308,52 @@ describe('a second student cannot reach the first student’s study material', (
       submitAnswer(db, fx.bob, attemptId, { questionId: question.id, response: 'anything' }),
     );
     await refused(() => completeAttempt(db, fx.bob, attemptId));
+  });
+});
+
+describe('a second student cannot reach the first student’s saved answers', () => {
+  it('cannot save into, read, or unsave them', async () => {
+    const course = await createCourse(db, fx.alice, {
+      title: 'Alice Saved Subject',
+      primaryLanguage: 'en',
+      secondaryLanguages: [],
+    });
+    await uploadDirect(db, fx.alice, {
+      clientRef: `iso-saved-${Date.now()}`,
+      offeringId: course.id,
+      filename: 'notes.pdf',
+      mimeType: 'application/pdf',
+      data: makePdf(['The escrow ratio governs settlement across both ledgers.']),
+    });
+    await runPending(db, { max: 30 });
+
+    const answer = await ask(db, fx.alice, 'What is the escrow ratio?', {
+      offeringId: course.id,
+    });
+    expect(answer.refused).toBe(false);
+    await setAnswerSaved(db, fx.alice, answer.messageId!, true);
+
+    await refused(() => setAnswerSaved(db, fx.bob, answer.messageId!, true));
+    await refused(() => setAnswerSaved(db, fx.bob, answer.messageId!, false));
+    expect(await listSavedAnswers(db, fx.bob)).toHaveLength(0);
+
+    // Still saved for the owner — the refusals changed nothing.
+    expect(await listSavedAnswers(db, fx.alice)).toHaveLength(1);
+  });
+
+  it('sees none of the owner’s numbers in its own overview', async () => {
+    const overview = await studentOverview(db, fx.bob);
+    expect(overview.courses.active).toBe(0);
+    expect(overview.lectures.total).toBe(0);
+    expect(overview.materials).toBe(0);
+    expect(overview.questionsAsked).toBe(0);
+    expect(overview.recentLectures).toEqual([]);
+
+    // The owner's own overview does count that work, so the zeroes above are
+    // isolation rather than an overview that counts nothing.
+    const owner = await studentOverview(db, fx.alice);
+    expect(owner.courses.active).toBeGreaterThan(0);
+    expect(owner.lectures.total).toBeGreaterThan(0);
   });
 });
 

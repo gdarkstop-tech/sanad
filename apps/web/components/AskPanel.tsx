@@ -13,10 +13,19 @@ interface Citation {
   pageNo: number | null;
 }
 
+interface Evidence {
+  strength: 'strong' | 'multiple' | 'limited' | 'insufficient';
+  label: string;
+  detail: string;
+  sourceCount: number;
+}
+
 interface AskResponse {
+  messageId: string | null;
   answer: string;
   refused: boolean;
   citations: Citation[];
+  evidence: Evidence;
   meta: { topScore: number; generator: string; mode: string; latencyMs: number };
 }
 
@@ -40,6 +49,7 @@ export function AskPanel({
   const [result, setResult] = useState<AskResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,6 +59,7 @@ export function AskPanel({
     setBusy(true);
     setError(null);
     setResult(null);
+    setSaved(false);
     try {
       setResult(await api<AskResponse>('/api/v1/ask', { method: 'POST', json: { question, courseId } }));
     } catch (caught) {
@@ -104,6 +115,12 @@ export function AskPanel({
             )}
           </div>
 
+          {result.evidence ? (
+            <p className={`evidence evidence-${result.evidence.strength}`} role="status">
+              <strong>{result.evidence.label}</strong> — {result.evidence.detail}
+            </p>
+          ) : null}
+
           {result.citations.length > 0 ? (
             <>
               <h3 className="sources-heading">Sources</h3>
@@ -115,11 +132,38 @@ export function AskPanel({
                     ) : (
                       <span>{citation.label}</span>
                     )}
-                    <span className="quote">“{citation.quote}”</span>
+                    <span className="quote" dir="auto">“{citation.quote}”</span>
+                    {citation.deepLink ? (
+                      <a className="cite-open" href={citation.deepLink}>
+                        Open the source →
+                      </a>
+                    ) : null}
                   </li>
                 ))}
               </ul>
             </>
+          ) : null}
+
+          {result.messageId && !result.refused ? (
+            <button
+              type="button"
+              className="secondary"
+              style={{ marginBlockStart: '0.9rem' }}
+              onClick={async () => {
+                if (!result.messageId) return;
+                setError(null);
+                try {
+                  await api(`/api/v1/answers/${result.messageId}/save`, {
+                    method: saved ? 'DELETE' : 'POST',
+                  });
+                  setSaved(!saved);
+                } catch (caught) {
+                  setError(messageFor(caught));
+                }
+              }}
+            >
+              {saved ? '★ Saved — remove' : '☆ Save this answer'}
+            </button>
           ) : null}
 
           <p className="muted meta-line">

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RATE_LIMITS, ask, identifierKey, rateLimit } from '@sanad/core';
+import { RATE_LIMITS, ask, assessEvidence, identifierKey, rateLimit } from '@sanad/core';
 import { db } from '@sanad/db';
 import { requireUser, subjectOf } from '@/lib/auth';
 import { handler, json, parseBody } from '@/lib/http';
@@ -24,10 +24,17 @@ export const POST = handler(async (request) => {
   });
 
   return json({
+    messageId: answer.messageId ?? null,
     answer: answer.answer,
     refused: answer.refused,
     refusalReason: answer.refusalReason,
     citations: answer.citations,
+    // A word derived from the two numbers below, never a fabricated percentage.
+    evidence: assessEvidence({
+      refused: answer.refused,
+      topScore: answer.topScore,
+      sourceCount: new Set(answer.citations.map((citation) => citation.chunkId)).size,
+    }),
     meta: {
       topScore: Number(answer.topScore.toFixed(5)),
       generator: answer.generator,

@@ -53,7 +53,7 @@ Reset before the real run. A demo account that has been clicked through already 
 ### Checks worth running once, in the room, before anyone is watching
 
 ```bash
-pnpm test                    # 275 tests
+pnpm test                    # 286 tests
 pnpm typecheck               # clean
 pnpm check:course-agnostic   # no subject term leaked into code
 pnpm verify:isolation http://localhost:3000

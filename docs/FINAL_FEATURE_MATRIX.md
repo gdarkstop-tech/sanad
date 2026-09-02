@@ -138,11 +138,21 @@ All eleven are defined in one place (`@sanad/contracts/roadmap`) and rendered id
 
 ---
 
+### Added in the finalization pass
+
+| Feature | Status | Tested | Mobile Tested | Demo Ready | Notes |
+|---|---|---|---|---|---|
+| Citation opens the source | `IMPLEMENTED` | Yes | NOT TESTED | Yes | `?t=` and `?page=`/`?slide=` now scroll to and highlight the cited passage. **This was broken** — every document citation was a 404 and every timestamp landed at the top |
+| Document viewer | `IMPLEMENTED` | Yes | NOT TESTED | Yes | `/materials/{id}` shows the extracted text with its page/slide anchors — the text Sanad actually quotes, so an extraction error is visible rather than hidden |
+| Evidence strength | `IMPLEMENTED` | `saved-answers.test.ts` | NOT TESTED | Yes | A word, never a percentage. Derived from the fused retrieval score and the count of distinct validated sources |
+| Saved answers | `IMPLEMENTED` | `saved-answers.test.ts`, `isolation.test.ts` | NOT TESTED | Yes | One column on `qa_messages`, so citations come along unchanged. Refusals cannot be saved |
+| Progress overview | `IMPLEMENTED` | `saved-answers.test.ts` | NOT TESTED | Yes | Counts and rows only. Nothing estimated, nothing scored by a model |
+
 ## Counts
 
 | Status | Count |
 |---|---|
-| `IMPLEMENTED` | **52** |
+| `IMPLEMENTED` | **57** |
 | `PARTIAL` | **8** |
 | `COMING SOON` | **11** |
 | `FUTURE` | **6** |
@@ -154,16 +164,16 @@ The eight `PARTIAL` rows, named: offline recording capture, local save while off
 ## What was actually executed to produce this table
 
 ```
-pnpm test                 275 passed, 15 files
+pnpm test                 286 passed, 15 files
 pnpm test:asr              55 passed
 pnpm typecheck              0 errors
 mobile tsc --noEmit         0 errors
 pnpm build                  clean
 expo export (android)       955 modules → 2.66 MB Hermes bundle
 check-course-agnostic       OK, 25 seeded terms, none in code
-verify-isolation            15/15 over HTTP
+verify-isolation            17/17 over HTTP
 verify-demo                 30/30 — every beat in DEMO.md
-verify-ui                   37/37 in Chromium, no console errors
+verify-ui                   43/43 in Chromium, no console errors
 pnpm setup (fresh clone)    clean checkout → seeded demo
 pnpm demo:reset             database rebuilt and reseeded
 ```

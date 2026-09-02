@@ -277,9 +277,11 @@ export function deepLinkFor(chunk: RetrievedChunk): string | null {
     return `/lectures/${chunk.lectureId}?t=${Math.floor(chunk.tStartMs / 1000)}`;
   }
   if (chunk.materialId) {
-    return chunk.pageNo !== null
-      ? `/materials/${chunk.materialId}?page=${chunk.pageNo}`
-      : `/materials/${chunk.materialId}`;
+    // Slides carry their own anchor. Omitting it sent a "slide 3" citation to
+    // the top of the deck, which is most of the way back to not citing at all.
+    if (chunk.pageNo !== null) return `/materials/${chunk.materialId}?page=${chunk.pageNo}`;
+    if (chunk.slideNo !== null) return `/materials/${chunk.materialId}?slide=${chunk.slideNo}`;
+    return `/materials/${chunk.materialId}`;
   }
   return null;
 }

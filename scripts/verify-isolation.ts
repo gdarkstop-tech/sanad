@@ -216,6 +216,26 @@ async function main(): Promise<number> {
   });
   check('cannot upload into it', refused(upload), `HTTP ${upload.status}`);
 
+  // Saved answers: the intruder must not be able to bookmark, read or unsave
+  // an answer that is not theirs.
+  const saved = await intruder.call('GET', '/api/v1/me/saved-answers');
+  const savedList = (saved.body.answers as unknown[] | undefined) ?? [];
+  check(
+    'sees no saved answers belonging to anyone else',
+    saved.status === 200 && savedList.length === 0,
+    `HTTP ${saved.status}, ${savedList.length} entries`,
+  );
+
+  const ownerAsk = await owner.call('POST', '/api/v1/ask', {
+    question: 'What did the professor say about hash tables?',
+    courseId: course.id,
+  });
+  const ownerMessageId = ownerAsk.body.messageId as string | null;
+  if (ownerMessageId) {
+    const hijack = await intruder.call('POST', `/api/v1/answers/${ownerMessageId}/save`);
+    check('cannot bookmark the owner’s answer', refused(hijack), `HTTP ${hijack.status}`);
+  }
+
   // The positive control: without it, a server that refused everything would
   // pass every check above.
   const ownerTranscript = await owner.call('GET', `/api/v1/lectures/${lectureId}/transcript`);

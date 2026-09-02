@@ -11,6 +11,7 @@ export function AppNav({ name, current }: { name: string; current: string }) {
     { href: '/dashboard', label: 'Courses' },
     { href: '/search', label: 'Search' },
     { href: '/plan', label: 'Study plan' },
+    { href: '/saved', label: 'Saved' },
     { href: '/community', label: 'Community' },
     { href: '/profile', label: 'Profile' },
   ];

@@ -232,3 +232,25 @@ ul.sources li { border-inline-start: 2px solid var(--line); padding-inline-start
 .rule { border: none; border-block-start: 1px solid var(--line); margin-block: 1rem; }
 button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
 .derived-note { border-inline-start: 3px solid var(--warn); padding-inline-start: 0.7rem; margin-block: 0.6rem; }
+
+/* A cited passage, opened from a citation link. */
+.excerpts { display: flex; flex-direction: column; gap: 0.9rem; }
+.excerpt { border-inline-start: 2px solid var(--line); padding-inline-start: 0.75rem; scroll-margin-block: 6rem; }
+.excerpt.cited { border-inline-start-color: var(--accent); background: var(--surface-sunk, rgba(127,127,127,0.08)); border-radius: 0 8px 8px 0; padding: 0.5rem 0.75rem; }
+.transcript li { scroll-margin-block: 6rem; }
+.cited-segment { background: var(--surface-sunk, rgba(127,127,127,0.10)); border-inline-start: 3px solid var(--accent); padding: 0.35rem 0.5rem; border-radius: 0 6px 6px 0; }
+
+/* Evidence strength. A word, never a percentage — nothing here measures one. */
+.evidence { margin-block: 0.9rem 0.2rem; font-size: 0.9rem; padding-inline-start: 0.7rem; border-inline-start: 3px solid var(--line); }
+.evidence-strong { border-inline-start-color: var(--accent); }
+.evidence-multiple { border-inline-start-color: var(--accent); }
+.evidence-limited { border-inline-start-color: var(--warn); }
+.evidence-insufficient { border-inline-start-color: var(--ink-faint); color: var(--ink-soft); }
+.cite-open { display: inline-block; margin-block-start: 0.3rem; font-size: 0.85rem; }
+
+/* Overview tiles. Counts from the database — never an estimate. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.7rem; margin-block: 1rem; }
+.tile { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.8rem; display: flex; flex-direction: column; gap: 0.1rem; background: var(--surface); }
+.tile-value { font-size: 1.7rem; font-weight: 700; line-height: 1.1; }
+.tile-label { font-size: 0.9rem; }
+.tile-note { font-size: 0.78rem; }

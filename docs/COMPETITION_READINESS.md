@@ -42,16 +42,16 @@ Executed in this environment, with output read:
 
 | Check | Command | Result |
 |---|---|---|
-| TypeScript tests | `pnpm test` | **275 passed**, 15 files |
+| TypeScript tests | `pnpm test` | **286 passed**, 15 files |
 | Python tests | `pnpm test:asr` | **55 passed** |
 | Typecheck | `pnpm typecheck` | 0 errors |
 | Mobile typecheck | `pnpm --filter @sanad/mobile exec tsc --noEmit` | 0 errors |
 | Production build | `pnpm build` | clean |
 | Mobile bundle | `expo export --platform android` | 955 modules → 2.66 MB Hermes |
 | Course-agnostic | `pnpm check:course-agnostic` | OK, 25 terms, none in code |
-| Isolation over HTTP | `pnpm verify:isolation <url>` | **15/15** |
+| Isolation over HTTP | `pnpm verify:isolation <url>` | **17/17** |
 | Demo beats | `pnpm verify:demo <url>` | **30/30** — every claim in DEMO.md |
-| Browser UI | `pnpm verify:ui <url>` | **37/37**, no console errors |
+| Browser UI | `pnpm verify:ui <url>` | **43/43**, no console errors |
 | Clean install | `pnpm setup` on a fresh `git clone` | clean checkout → seeded demo |
 | Demo reset | `pnpm demo:reset` | database rebuilt and reseeded |
 | Clean migration | `pnpm db:migrate` from an empty database | all 6 migrations applied |

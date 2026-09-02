@@ -1,4 +1,12 @@
-import { citations, qaMessages, type Database } from '@sanad/db';
+import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import {
+  citations,
+  courseOfferings,
+  courses,
+  qaMessages,
+  type Database,
+} from '@sanad/db';
+import { Errors } from '../errors';
 import type { Subject } from '../permissions';
 import {
   citationLabel,
@@ -34,6 +42,7 @@ export interface Citation {
   materialId: string | null;
   tStartMs: number | null;
   pageNo: number | null;
+  slideNo: number | null;
 }
 
 export interface Answer {
@@ -45,6 +54,8 @@ export interface Answer {
   generator: string;
   mode: 'hybrid' | 'lexical';
   latencyMs: number;
+  /** The stored row, so the student can bookmark this exact answer. */
+  messageId?: string | null;
 }
 
 export const REFUSAL_TEXT =
@@ -137,7 +148,7 @@ export async function ask(
       generator: 'none',
       latencyMs: Date.now() - started,
     };
-    await persist(db, subject, question, options.offeringId, answer, retrieval.chunks);
+    answer.messageId = await persist(db, subject, question, options.offeringId, answer, retrieval.chunks);
     return answer;
   }
 
@@ -162,7 +173,7 @@ export async function ask(
       generator: composer.name,
       latencyMs: Date.now() - started,
     };
-    await persist(db, subject, question, options.offeringId, answer, retrieval.chunks);
+    answer.messageId = await persist(db, subject, question, options.offeringId, answer, retrieval.chunks);
     return answer;
   }
 
@@ -175,7 +186,7 @@ export async function ask(
     generator: composer.name,
     latencyMs: Date.now() - started,
   };
-  await persist(db, subject, question, options.offeringId, answer, retrieval.chunks);
+  answer.messageId = await persist(db, subject, question, options.offeringId, answer, retrieval.chunks);
   return answer;
 }
 
@@ -192,6 +203,7 @@ function toCitation(chunk: RetrievedChunk): Citation {
     materialId: chunk.materialId,
     tStartMs: chunk.tStartMs,
     pageNo: chunk.pageNo,
+    slideNo: chunk.slideNo,
   };
 }
 
@@ -202,7 +214,7 @@ async function persist(
   offeringId: string | undefined,
   answer: Answer,
   retrieved: RetrievedChunk[],
-): Promise<void> {
+): Promise<string | null> {
   const [message] = await db
     .insert(qaMessages)
     .values({
@@ -221,7 +233,8 @@ async function persist(
     })
     .returning({ id: qaMessages.id });
 
-  if (!message || answer.citations.length === 0) return;
+  if (!message) return null;
+  if (answer.citations.length === 0) return message.id;
 
   await db.insert(citations).values(
     answer.citations.map((citation, index) => ({
@@ -235,12 +248,15 @@ async function persist(
         materialId: citation.materialId,
         tStartMs: citation.tStartMs,
         pageNo: citation.pageNo,
+        slideNo: citation.slideNo,
         formatted: citation.tStartMs !== null ? formatTimestamp(citation.tStartMs) : null,
       },
       rank: index,
       validated: true,
     })),
   );
+
+  return message.id;
 }
 
 function tokenize(text: string): string[] {
@@ -269,4 +285,199 @@ function bestSentence(text: string, terms: string[]): string | null {
     }
   }
   return best.slice(0, 320);
+}
+
+/**
+ * How well the retrieved evidence supports an answer.
+ *
+ * Deliberately a word, not a percentage. A number like "87% confident" implies
+ * a calibrated probability, and nothing here measures one — the score is a
+ * fused rank, not a likelihood that the answer is correct. Publishing a number
+ * with no defined meaning is the same class of mistake as inventing a citation.
+ *
+ * Both inputs are real: `topScore` is the fused retrieval score the threshold
+ * is applied to, and `sourceCount` is how many distinct sources survived
+ * citation validation. Independent corroboration is what "multiple sources"
+ * means here, so it is counted, not guessed.
+ */
+export type EvidenceStrength = 'strong' | 'multiple' | 'limited' | 'insufficient';
+
+export interface EvidenceAssessment {
+  strength: EvidenceStrength;
+  label: string;
+  /** Plain-language reason, shown next to the label. */
+  detail: string;
+  sourceCount: number;
+}
+
+/** Above this, the top match is a close one rather than a scrape past the gate. */
+export const STRONG_EVIDENCE_SCORE = 0.75;
+
+export function assessEvidence(input: {
+  refused: boolean;
+  topScore: number;
+  sourceCount: number;
+}): EvidenceAssessment {
+  const { refused, topScore, sourceCount } = input;
+
+  if (refused || sourceCount === 0) {
+    return {
+      strength: 'insufficient',
+      label: 'Insufficient evidence',
+      detail: 'Your materials do not cover this, so Sanad did not answer.',
+      sourceCount: 0,
+    };
+  }
+
+  if (topScore >= STRONG_EVIDENCE_SCORE && sourceCount >= 2) {
+    return {
+      strength: 'strong',
+      label: 'Strong source match',
+      detail: `A close match, corroborated by ${sourceCount} sources.`,
+      sourceCount,
+    };
+  }
+
+  if (sourceCount >= 2) {
+    return {
+      strength: 'multiple',
+      label: 'Multiple supporting sources',
+      detail: `${sourceCount} sources support this, none of them an exact match.`,
+      sourceCount,
+    };
+  }
+
+  return {
+    strength: 'limited',
+    label: 'Limited evidence',
+    detail: 'One source supports this. Worth checking it before relying on it.',
+    sourceCount,
+  };
+}
+
+export interface SavedAnswer {
+  id: string;
+  question: string;
+  answer: string;
+  offeringId: string | null;
+  courseTitle: string | null;
+  generator: string;
+  savedAt: Date;
+  askedAt: Date;
+  citations: Array<{
+    chunkId: string;
+    label: string;
+    quote: string | null;
+    deepLink: string | null;
+  }>;
+}
+
+/**
+ * Bookmarks an answer the student wants to keep.
+ *
+ * Scoped to the caller inside the update itself, so a guessed id saves nothing
+ * rather than saving somebody else's answer. Refusals cannot be saved: there is
+ * nothing in one worth keeping, and a bookmarked "I don't know" would be a
+ * confusing thing to find later.
+ */
+export async function setAnswerSaved(
+  db: Database,
+  subject: Subject,
+  messageId: string,
+  saved: boolean,
+): Promise<{ id: string; savedAt: Date | null }> {
+  const [existing] = await db
+    .select({ id: qaMessages.id, refused: qaMessages.refused })
+    .from(qaMessages)
+    .where(and(eq(qaMessages.id, messageId), eq(qaMessages.userId, subject.userId)))
+    .limit(1);
+  if (!existing) throw Errors.notFound('Answer');
+  if (saved && existing.refused) {
+    throw Errors.validation('A refusal has nothing to save.');
+  }
+
+  const [updated] = await db
+    .update(qaMessages)
+    .set({ savedAt: saved ? new Date() : null })
+    .where(and(eq(qaMessages.id, messageId), eq(qaMessages.userId, subject.userId)))
+    .returning({ id: qaMessages.id, savedAt: qaMessages.savedAt });
+  if (!updated) throw Errors.notFound('Answer');
+  return updated;
+}
+
+/**
+ * The student's saved answers, with the citations they were given.
+ *
+ * The citations come from the `citations` table rather than being recomputed,
+ * so a saved answer shows the evidence it actually cited at the time — not
+ * whatever retrieval would return today.
+ */
+export async function listSavedAnswers(
+  db: Database,
+  subject: Subject,
+  limit = 50,
+): Promise<SavedAnswer[]> {
+  const rows = await db
+    .select({ message: qaMessages, courseTitle: courses.title })
+    .from(qaMessages)
+    .leftJoin(courseOfferings, eq(courseOfferings.id, qaMessages.offeringId))
+    .leftJoin(courses, eq(courses.id, courseOfferings.courseId))
+    .where(and(eq(qaMessages.userId, subject.userId), isNotNull(qaMessages.savedAt)))
+    .orderBy(desc(qaMessages.savedAt))
+    .limit(Math.min(limit, 200));
+
+  if (rows.length === 0) return [];
+
+  const stored = await db
+    .select()
+    .from(citations)
+    .where(
+      and(
+        eq(citations.targetType, 'qa_message'),
+        inArray(
+          citations.targetId,
+          rows.map((row) => row.message.id),
+        ),
+      ),
+    )
+    .orderBy(asc(citations.rank));
+
+  const byMessage = new Map<string, SavedAnswer['citations']>();
+  for (const citation of stored) {
+    const anchor = citation.anchor as {
+      label?: string;
+      lectureId?: string | null;
+      materialId?: string | null;
+      tStartMs?: number | null;
+      pageNo?: number | null;
+      slideNo?: number | null;
+    };
+    const list = byMessage.get(citation.targetId) ?? [];
+    list.push({
+      chunkId: citation.chunkId,
+      label: anchor.label ?? 'Source',
+      quote: citation.quote,
+      deepLink: deepLinkFor({
+        chunkId: citation.chunkId,
+        lectureId: anchor.lectureId ?? null,
+        materialId: anchor.materialId ?? null,
+        tStartMs: anchor.tStartMs ?? null,
+        pageNo: anchor.pageNo ?? null,
+        slideNo: anchor.slideNo ?? null,
+      } as Parameters<typeof deepLinkFor>[0]),
+    });
+    byMessage.set(citation.targetId, list);
+  }
+
+  return rows.map((row) => ({
+    id: row.message.id,
+    question: row.message.question,
+    answer: row.message.answer,
+    offeringId: row.message.offeringId,
+    courseTitle: row.courseTitle,
+    generator: row.message.generator,
+    savedAt: row.message.savedAt!,
+    askedAt: row.message.createdAt,
+    citations: byMessage.get(row.message.id) ?? [],
+  }));
 }

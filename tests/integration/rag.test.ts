@@ -266,6 +266,13 @@ describe('unified search', () => {
     const first = result.chunks[0]!;
     expect(citationLabel(first)).toMatch(/Lecture 4 — \d+:\d{2}/);
     expect(deepLinkFor(first)).toMatch(/^\/lectures\/.+\?t=\d+$/);
+
+    // Every anchor kind has to survive into the link, or the citation opens
+    // the right document at the wrong place.
+    const base = { ...first, lectureId: null, tStartMs: null, materialId: 'm1' };
+    expect(deepLinkFor({ ...base, pageNo: 7, slideNo: null })).toBe('/materials/m1?page=7');
+    expect(deepLinkFor({ ...base, pageNo: null, slideNo: 12 })).toBe('/materials/m1?slide=12');
+    expect(deepLinkFor({ ...base, pageNo: null, slideNo: null })).toBe('/materials/m1');
   });
 
   it('returns nothing for an empty query rather than everything', async () => {
