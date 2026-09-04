@@ -15,7 +15,11 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates tini \
   && rm -rf /var/lib/apt/lists/*
 
-ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
+# COREPACK_HOME matters: the build runs as root and the container runs as uid
+# 1000, so corepack's default cache under the root home is unreadable at
+# runtime. Left alone, every boot re-downloads pnpm from the npm registry —
+# slow when it works, and a failure to start when the registry is unreachable.
+ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH COREPACK_HOME=/app/.corepack
 RUN corepack enable
 
 WORKDIR /app

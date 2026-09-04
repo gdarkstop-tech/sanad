@@ -42,50 +42,68 @@ have been prepared by hand.
 | `SEED_DEMO` | no | `0` to skip seeding entirely |
 | `STORAGE_ROOT` | no | Defaults to `/tmp/sanad-storage` |
 
-## Hugging Face Spaces
+## How much memory it needs
 
-Spaces is the recommended host, for one specific reason: the free tier gives
-16 GB of RAM. The embedding model runs in-process and wants more memory than the
-512 MB that most free tiers offer, and a host that cannot hold the model turns
-hybrid search into lexical-only search.
+Measured, by running the container under a cap and putting the demo checks
+through it:
 
-1. Create a Hugging Face account. Free, no card.
-2. **New Space** → SDK **Docker** → **Blank**. Public or private both work.
-3. In **Settings → Variables and secrets**, add two *secrets*:
-   `DATABASE_URL` (your Neon string) and `APP_SECRET`
-   (`openssl rand -base64 32`).
-4. Point this repository at the Space and deploy:
+| Cap | Result |
+| --- | --- |
+| 512 MB | Passes, then is OOM-killed |
+| 768 MB | Passes, peaks at 579 MB |
+| 1 GB | Passes, peaks at 739 MB |
+
+So roughly 600 MB, and 1 GB to be comfortable. Constraining Node's heap does not
+help — the memory is in the ONNX runtime's WASM heap, outside V8.
+
+This rules out most free tiers, which stop at 512 MB: Render, Koyeb, SnapDeploy.
+Hugging Face Spaces is also out, despite fitting technically — Docker Spaces now
+require a paid plan, and only Static Spaces are free.
+
+## Oracle Cloud Always Free
+
+An Always Free ARM instance gives far more than this needs, permanently, and the
+free tier has no time limit. A card is required at signup for identity
+verification; nothing on the Always Free shapes is billed.
+
+1. Sign up at **oracle.com/cloud/free**. Approval is usually minutes but can
+   take longer.
+2. **Compute → Instances → Create instance.** Choose an **Ampere A1** shape
+   (ARM) with 1 OCPU and 6 GB, or any x86 shape with at least 1 GB. Pick an
+   **Ubuntu** image. Download the private key when it is offered — it is shown
+   once.
+3. **Networking → Virtual Cloud Networks → your VCN → the public subnet's
+   security list → Add Ingress Rule:**
+   source `0.0.0.0/0`, IP protocol **TCP**, destination port **3000**.
+4. SSH in, then:
 
 ```bash
-git remote add space https://huggingface.co/spaces/<you>/sanad
-pnpm deploy:space
+git clone -b <branch> https://github.com/<you>/sanad.git && cd sanad
+export DATABASE_URL='postgres://…'
+export APP_SECRET="$(openssl rand -base64 32)"
+bash scripts/vm-setup.sh
 ```
 
-A Space is configured by a YAML block at the top of `README.md`. That block is
-noise in a README people read, so `scripts/deploy-space.sh` keeps it off the
-working branch: it rebuilds a throwaway `deploy/hf-space` branch from wherever
-you are, writes the block there, and force-pushes that. Rebuilt from scratch
-each time rather than merged, so it cannot conflict and cannot drift from the
-branch you are actually working on.
+The script installs Docker if it is missing, opens the port on the instance
+firewall, builds the image, and starts the container with `--restart
+unless-stopped` so it comes back after a reboot. It is safe to re-run.
 
-Pushing to Hugging Face asks for a username and password: the password is an
-access token from **Settings → Access Tokens**, with write permission. Your
-account password will not work.
+Two things it handles that catch people out. Inbound traffic is blocked at
+**two** layers on Oracle — the security list in step 3, which the script cannot
+touch, and a firewall on the instance itself, which it can; forgetting the
+second gives a server that works over SSH and is unreachable from anywhere else.
+And the free ARM instances are aarch64, which building on the VM rather than
+shipping an image makes irrelevant.
 
-The first build takes several minutes — it installs, builds, and downloads the
-embedding model. Afterwards the Space has a public `https://` URL.
-
-Then open the mobile app, tap **Change** next to the server address, and enter
-that URL. It is saved on the phone, so it survives restarts and does not care
-what network you are on.
-
-An https address also removes the one security compromise the LAN setup forced:
-the app no longer needs to send anything in the clear.
+Then open the app, tap **Change** next to the server address, and enter
+`http://<the VM's public IP>:3000`.
 
 ## What this does not fix
 
-- **A free Space sleeps when idle** and takes some seconds to wake. Open it a
-  couple of minutes before you need it.
+- **Traffic is plain HTTP**, over the VM's public IP. The app permits that
+  deliberately (see `apps/mobile/plugins/with-lan-cleartext.js`), but a password
+  crossing the internet in the clear is worse than one crossing your own Wi-Fi.
+  A domain and a certificate would fix it; neither is set up here.
 - **Uploaded files do not survive a restart.** They are only needed between
   upload and extraction, and everything the app displays afterwards lives in the
   database — but a file uploaded and then never processed would be lost.
@@ -107,4 +125,6 @@ pnpm verify:ui        https://your-space.hf.space
 This image was built and run against a bare database before being documented:
 migrations applied, demo seeded, restart re-seeded nothing, and 30/30 demo
 beats, 17/17 isolation probes and 43/43 browser checks passed against the
-container.
+container. `scripts/vm-setup.sh` was run end to end as well — Docker detected,
+the firewall rule added and confirmed idempotent, the container started under
+`--restart unless-stopped`, and the demo beats passed against it at 605 MB.
