@@ -73,16 +73,37 @@ export class NetworkError extends Error {
 }
 
 /**
+ * How long a request may take before it is treated as unreachable.
+ *
+ * `fetch` has no timeout of its own. An address that is merely wrong — the
+ * emulator loopback on a physical phone, say — gets no reply and no refusal, so
+ * without this the app waits behind a spinner indefinitely rather than failing
+ * and saying why.
+ */
+const REQUEST_TIMEOUT_MS = 12_000;
+
+/** Uploads carry real bytes over real networks and need much longer. */
+const UPLOAD_TIMEOUT_MS = 120_000;
+
+/**
  * `fetch` rejects with a bare "Network request failed" when it cannot reach the
  * host. On a phone that is the most likely failure and the least informative
  * message in the app, so the address it actually tried is named.
  */
-async function reach(path: string, init?: RequestInit): Promise<Response> {
+async function reach(
+  path: string,
+  init?: RequestInit,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+): Promise<Response> {
   const base = getApiUrl();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(`${base}${path}`, init);
+    return await fetch(`${base}${path}`, { ...init, signal: controller.signal });
   } catch {
     throw new NetworkError(base);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -158,11 +179,15 @@ export const httpClient: HttpClient = {
     return { ok: response.ok, status: response.status, body: await parse(response) };
   },
   async putBytes(path, bytes, extra): Promise<HttpResponse> {
-    const response = await reach(path, {
-      method: 'PUT',
-      headers: headers(extra),
-      body: bytes as unknown as BodyInit,
-    });
+    const response = await reach(
+      path,
+      {
+        method: 'PUT',
+        headers: headers(extra),
+        body: bytes as unknown as BodyInit,
+      },
+      UPLOAD_TIMEOUT_MS,
+    );
     captureCookies(response);
     return { ok: response.ok, status: response.status, body: await parse(response) };
   },
