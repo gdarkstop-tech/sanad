@@ -18,6 +18,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:seed:demo": "tsx scripts/seed-demo.ts",
     "demo:reset": "bash scripts/reset-demo.sh",
+    "deploy:space": "bash scripts/deploy-space.sh",
     "dev": "pnpm --filter @sanad/web dev",
     "mobile": "pnpm --filter @sanad/mobile start",
     "mobile:apk": "bash scripts/build-apk.sh",

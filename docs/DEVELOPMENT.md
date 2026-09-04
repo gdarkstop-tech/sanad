@@ -111,6 +111,7 @@ Phase 2+ ones that are listed but unused, so the shape is known in advance.
 | `pnpm mobile` | Expo dev server |
 | `pnpm mobile:apk` | Build an installable Android APK (needs the Android SDK) |
 | `docker build -t sanad .` | One container: migrates, seeds, serves ([docs/DEPLOY.md](DEPLOY.md)) |
+| `pnpm deploy:space` | Push this branch to a Hugging Face Space |
 
 ## The mobile app
 

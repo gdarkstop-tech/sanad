@@ -51,23 +51,26 @@ hybrid search into lexical-only search.
 
 1. Create a Hugging Face account. Free, no card.
 2. **New Space** → SDK **Docker** → **Blank**. Public or private both work.
-3. Push this repository to the Space's git remote.
-4. In **Settings → Variables and secrets**, add two *secrets*:
-   `DATABASE_URL` and `APP_SECRET`.
-5. Add this at the very top of the Space's `README.md`, which is how a Space
-   declares itself:
+3. In **Settings → Variables and secrets**, add two *secrets*:
+   `DATABASE_URL` (your Neon string) and `APP_SECRET`
+   (`openssl rand -base64 32`).
+4. Point this repository at the Space and deploy:
 
-```yaml
----
-title: Sanad
-emoji: 📘
-colorFrom: gray
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
----
+```bash
+git remote add space https://huggingface.co/spaces/<you>/sanad
+pnpm deploy:space
 ```
+
+A Space is configured by a YAML block at the top of `README.md`. That block is
+noise in a README people read, so `scripts/deploy-space.sh` keeps it off the
+working branch: it rebuilds a throwaway `deploy/hf-space` branch from wherever
+you are, writes the block there, and force-pushes that. Rebuilt from scratch
+each time rather than merged, so it cannot conflict and cannot drift from the
+branch you are actually working on.
+
+Pushing to Hugging Face asks for a username and password: the password is an
+access token from **Settings → Access Tokens**, with write permission. Your
+account password will not work.
 
 The first build takes several minutes — it installs, builds, and downloads the
 embedding model. Afterwards the Space has a public `https://` URL.
