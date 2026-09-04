@@ -19,6 +19,7 @@
     "demo:reset": "bash scripts/reset-demo.sh",
     "dev": "pnpm --filter @sanad/web dev",
     "mobile": "pnpm --filter @sanad/mobile start",
+    "mobile:apk": "bash scripts/build-apk.sh",
     "setup": "bash scripts/setup.sh",
     "setup:docker": "bash scripts/setup.sh --docker",
     "test": "vitest run",

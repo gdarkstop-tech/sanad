@@ -1,0 +1,14 @@
+{
+  "cli": { "version": ">= 5.0.0", "appVersionSource": "local" },
+  "build": {
+    "preview": {
+      "//": "Sideloadable APK. Expo's cloud builder defaults to an .aab, which Play Store accepts and a phone cannot install.",
+      "android": { "buildType": "apk" },
+      "distribution": "internal"
+    },
+    "preview-local": {
+      "extends": "preview",
+      "//": "Same output, built on this machine: `eas build -p android --profile preview-local --local`."
+    }
+  }
+}

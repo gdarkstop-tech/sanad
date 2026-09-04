@@ -5,23 +5,43 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "sanad",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Sanad records lectures so it can transcribe them for you. Recording works without an internet connection."
-      }
+      },
+      "bundleIdentifier": "edu.sanad.app"
     },
     "android": {
+      "package": "edu.sanad.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0d1415"
+      },
       "permissions": [
         "RECORD_AUDIO",
         "INTERNET",
         "ACCESS_NETWORK_STATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE"
       ]
     },
     "plugins": [
-      "expo-router"
-    ]
+      "expo-router",
+      "./plugins/with-lan-cleartext.js",
+      "./plugins/with-kotlin-version.js"
+    ],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d1415"
+    }
   }
 }

@@ -42,7 +42,7 @@ Executed in this environment, with output read:
 
 | Check | Command | Result |
 |---|---|---|
-| TypeScript tests | `pnpm test` | **296 passed**, 17 files |
+| TypeScript tests | `pnpm test` | **303 passed**, 17 files |
 | Python tests | `pnpm test:asr` | **55 passed** |
 | Typecheck | `pnpm typecheck` | 0 errors |
 | Mobile typecheck | `pnpm --filter @sanad/mobile exec tsc --noEmit` | 0 errors |
@@ -134,8 +134,15 @@ pnpm mobile                # scan the QR code with Expo Go
 
 No address to configure: `localhost` on a phone means the phone, so the app takes
 the API host from the machine Expo served the bundle from — the one running
-`pnpm dev`. The sign-in screen prints the address it resolved. Set
-`EXPO_PUBLIC_SANAD_API_URL` only to override that.
+`pnpm dev`. The sign-in screen prints the address it resolved, and lets you
+change it if the network disagrees.
+
+If Expo Go is unavailable or has dropped this SDK, there is an installable APK
+instead — `pnpm mobile:apk`, or Expo's free cloud builder. It bundles its own
+JavaScript, so it needs no Metro; it asks for the server's address on first run
+and remembers it. **The APK has been built and its signature and manifest
+checked, but it has not been installed on a phone** — that is the same gap as
+everything else here, not a smaller one.
 
 **Nothing here needs an account, an API key, or a paid service.**
 

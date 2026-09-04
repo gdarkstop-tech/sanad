@@ -435,7 +435,7 @@ Counted from the sections above, not estimated: 23 rows marked **Implemented**, 
 Everything above was run, in this order, against a clean database:
 
 ```
-TypeScript tests        296 passed (17 files)
+TypeScript tests        303 passed (17 files)
 Python tests             55 passed
 Root typecheck            0 errors
 Mobile typecheck          0 errors

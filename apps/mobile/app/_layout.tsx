@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View } from 'react-native';
 import { restoreSession } from '@/lib/api';
+import { initApiUrl } from '@/lib/config';
 import { startQueue, stopQueue } from '@/lib/queue';
 import { ensureRecordingsDirectory } from '@/lib/adapters';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -14,6 +15,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     (async () => {
+      // Before anything can be requested, settle where to request it from: a
+      // standalone build may have an address saved on this phone.
+      await initApiUrl();
       await ensureRecordingsDirectory();
       await restoreSession();
       // The queue starts regardless of sign-in state: a recording made before

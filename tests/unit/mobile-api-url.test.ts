@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { API_PORT, resolveApiUrl } from '../../apps/mobile/lib/resolve-api-url';
+import { API_PORT, normalizeServerUrl, resolveApiUrl } from '../../apps/mobile/lib/resolve-api-url';
 
 /**
  * The mobile app's single most failure-prone value.
@@ -82,9 +82,57 @@ describe('resolveApiUrl', () => {
     );
   });
 
+  it('lets an address saved on the phone beat everything, which is what an APK needs', () => {
+    expect(
+      resolveApiUrl({
+        savedUrl: 'http://192.168.1.9:3000',
+        envUrl: 'https://baked-in.example.edu',
+        hostUri: '192.168.1.5:8081',
+        platform: 'android',
+      }),
+    ).toBe('http://192.168.1.9:3000');
+  });
+
   it('keeps IPv6 brackets intact', () => {
     expect(resolveApiUrl({ hostUri: 'http://[fe80::1]:8081', platform: 'android' })).toBe(
       `http://[fe80::1]:${API_PORT}`,
     );
+  });
+});
+
+/**
+ * What someone types on a phone keyboard, standing in front of a laptop.
+ */
+describe('normalizeServerUrl', () => {
+  it('completes a bare host with http and the dev port', () => {
+    expect(normalizeServerUrl('192.168.1.5')).toBe(`http://192.168.1.5:${API_PORT}`);
+    expect(normalizeServerUrl('  192.168.1.5  ')).toBe(`http://192.168.1.5:${API_PORT}`);
+  });
+
+  it('keeps a port that was typed', () => {
+    expect(normalizeServerUrl('192.168.1.5:4000')).toBe('http://192.168.1.5:4000');
+  });
+
+  it('respects a scheme exactly, so a deployed https backend is not rewritten', () => {
+    expect(normalizeServerUrl('https://sanad.example.edu')).toBe('https://sanad.example.edu');
+    expect(normalizeServerUrl('https://sanad.example.edu/')).toBe('https://sanad.example.edu');
+    expect(normalizeServerUrl('http://192.168.1.5:3000')).toBe('http://192.168.1.5:3000');
+  });
+
+  it('accepts a hostname, not only an address', () => {
+    expect(normalizeServerUrl('my-laptop.local')).toBe(`http://my-laptop.local:${API_PORT}`);
+  });
+
+  it('rejects a port that is not a port, rather than quietly dropping it', () => {
+    expect(normalizeServerUrl('192.168.1.5:8O80')).toBeNull();
+    expect(normalizeServerUrl('192.168.1.5:0')).toBeNull();
+    expect(normalizeServerUrl('192.168.1.5:99999')).toBeNull();
+    expect(normalizeServerUrl('192.168.1.5:8080')).toBe('http://192.168.1.5:8080');
+  });
+
+  it('rejects what cannot be a host rather than saving it to fail later', () => {
+    for (const bad of ['', '   ', 'not a host', 'http://', 'http://:3000', '://x']) {
+      expect(normalizeServerUrl(bad)).toBeNull();
+    }
   });
 });

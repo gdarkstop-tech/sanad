@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { Link, useRouter } from 'expo-router';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 import { apiSend, primeCsrf } from '@/lib/api';
-import { API_URL } from '@/lib/config';
+import {
+  clearApiUrl,
+  detectedApiUrl,
+  getApiUrl,
+  needsServerAddress,
+  setApiUrl,
+} from '@/lib/config';
 import { Button, s, theme } from '@/components/ui';
 
 export default function SignIn() {
@@ -11,6 +17,36 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // An installed build has no Metro to ask for the address, and a laptop's LAN
+  // address changes. Showing it — and letting it be corrected here — is the
+  // difference between "the app is broken" and a ten-second fix.
+  const [server, setServer] = useState(getApiUrl());
+  const [editingServer, setEditingServer] = useState(needsServerAddress());
+  // Nothing detected means nothing worth pre-filling: a student correcting
+  // "10.0.2.2" is worse off than one typing into an empty field with a hint.
+  const [serverDraft, setServerDraft] = useState(needsServerAddress() ? '' : getApiUrl());
+  const [serverNote, setServerNote] = useState<string | null>(null);
+
+  async function saveServer() {
+    const saved = await setApiUrl(serverDraft);
+    if (!saved) {
+      setServerNote('That does not look like an address. Try 192.168.1.5:3000');
+      return;
+    }
+    setServer(saved);
+    setServerDraft(saved);
+    setServerNote(null);
+    setEditingServer(false);
+    setError(null);
+  }
+
+  async function resetServer() {
+    const detected = await clearApiUrl();
+    setServer(detected);
+    setServerDraft(detected);
+    setServerNote(null);
+  }
 
   async function submit() {
     setBusy(true);
@@ -60,7 +96,52 @@ export default function SignIn() {
         <Link href="/register" style={{ color: theme.accent }}>
           Create an account
         </Link>
-        <Text style={[s.muted, { marginTop: 16 }]}>Server: {API_URL}</Text>
+        <View style={{ marginTop: 20, borderTopColor: theme.line, borderTopWidth: 1, paddingTop: 14 }}>
+          {editingServer ? (
+            <>
+              <Text style={s.label}>Server address</Text>
+              <TextInput
+                style={s.input}
+                value={serverDraft}
+                onChangeText={setServerDraft}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                placeholder="192.168.1.5:3000"
+                placeholderTextColor={theme.inkFaint}
+              />
+              {serverNote ? <Text style={s.error}>{serverNote}</Text> : null}
+              <Text style={s.muted}>
+                The address of the computer running Sanad, on the same Wi-Fi as this phone.
+              </Text>
+              <View style={[s.row, { marginTop: 10 }]}>
+                <Button label="Save" onPress={saveServer} style={{ flex: 1 }} />
+                <Button
+                  label="Detect"
+                  variant="secondary"
+                  onPress={resetServer}
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </>
+          ) : (
+            <View style={s.spread}>
+              <Text style={[s.muted, { flex: 1 }]}>Server: {server}</Text>
+              <Text
+                style={{ color: theme.accent, fontSize: 13 }}
+                onPress={() => {
+                  setServerDraft(server);
+                  setEditingServer(true);
+                }}
+              >
+                Change
+              </Text>
+            </View>
+          )}
+          {!editingServer && server !== detectedApiUrl() ? (
+            <Text style={[s.muted, { marginTop: 4 }]}>Saved on this phone.</Text>
+          ) : null}
+        </View>
       </View>
     </ScrollView>
   );

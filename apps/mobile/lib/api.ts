@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HttpClient, HttpResponse } from '@sanad/offline';
-import { API_URL } from './config';
+import { getApiUrl } from './config';
 
 /**
  * API client.
@@ -78,10 +78,11 @@ export class NetworkError extends Error {
  * message in the app, so the address it actually tried is named.
  */
 async function reach(path: string, init?: RequestInit): Promise<Response> {
+  const base = getApiUrl();
   try {
-    return await fetch(`${API_URL}${path}`, init);
+    return await fetch(`${base}${path}`, init);
   } catch {
-    throw new NetworkError(API_URL);
+    throw new NetworkError(base);
   }
 }
 

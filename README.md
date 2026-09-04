@@ -149,12 +149,13 @@ rows of the matrix, not estimated.
 Last run, in this repository, with output read:
 
 ```
-pnpm test                 296 passed, 17 files
+pnpm test                 303 passed, 17 files
 pnpm test:asr              55 passed
 pnpm typecheck              0 errors
 mobile tsc --noEmit         0 errors
 pnpm build                  clean
-expo export (android)       955 modules → 2.66 MB Hermes bundle
+expo export (android)       955 modules → 2.67 MB Hermes bundle
+pnpm mobile:apk             63 MB release APK, signed, installs
 pnpm check:course-agnostic  OK, 25 seeded terms, none in code
 pnpm verify:isolation      17/17 over HTTP
 pnpm verify:demo           30/30 — every beat in DEMO.md

@@ -164,7 +164,7 @@ The eight `PARTIAL` rows, named: offline recording capture, local save while off
 ## What was actually executed to produce this table
 
 ```
-pnpm test                 296 passed, 17 files
+pnpm test                 303 passed, 17 files
 pnpm test:asr              55 passed
 pnpm typecheck              0 errors
 mobile tsc --noEmit         0 errors

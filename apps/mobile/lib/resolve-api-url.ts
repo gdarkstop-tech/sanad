@@ -21,6 +21,15 @@
 export const API_PORT = 3000;
 
 export interface ApiUrlSources {
+  /**
+   * What the student typed on the sign-in screen and the app remembered.
+   *
+   * Highest precedence, and the reason an installed APK is usable at all: a
+   * standalone build has no Metro to ask, and a laptop's LAN address changes
+   * whenever the router feels like it. Someone holding the phone can fix that
+   * without a rebuild.
+   */
+  savedUrl?: string | null;
   /** EXPO_PUBLIC_SANAD_API_URL — an explicit override, for LAN or production. */
   envUrl?: string | null;
   /** `expo.extra.apiUrl` in app.json, if a build pins one. */
@@ -37,7 +46,7 @@ const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 const ANDROID_EMULATOR_HOST = '10.0.2.2';
 
 export function resolveApiUrl(sources: ApiUrlSources): string {
-  const explicit = firstNonEmpty(sources.envUrl, sources.configuredUrl);
+  const explicit = firstNonEmpty(sources.savedUrl, sources.envUrl, sources.configuredUrl);
   if (explicit) return trimTrailingSlash(explicit);
 
   const host = hostFromUri(sources.hostUri);
@@ -89,4 +98,39 @@ function firstNonEmpty(...values: (string | null | undefined)[]): string | null 
 /** `${API_URL}${path}` is how every call is built, and path already leads with `/`. */
 function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '');
+}
+
+/**
+ * Turns what someone types into a base URL.
+ *
+ * Students type "192.168.1.5", not "http://192.168.1.5:3000". A bare host is
+ * completed with http and the dev port; anything carrying a scheme is respected
+ * exactly as written, so a deployed https backend is never rewritten.
+ *
+ * Returns null for input that cannot be a host, so the caller can say so rather
+ * than storing something that will fail later with a confusing error.
+ */
+export function normalizeServerUrl(input: string): string | null {
+  const value = input.trim();
+  if (!value || /\s/.test(value)) return null;
+
+  // Read the host before trimming: trimming "http://" first would leave "http:",
+  // which then parses as a host and stores an address nothing can be fetched from.
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) {
+    return hostFromUri(value) ? trimTrailingSlash(value) : null;
+  }
+
+  const withoutPath = trimTrailingSlash(value).split('/')[0] ?? '';
+  const host = hostFromUri(withoutPath);
+  if (!host) return null;
+
+  // Whatever follows the host must be a usable port or nothing at all. Silently
+  // discarding a typed ":8O80" would hand back an address that looks accepted
+  // and is not the one they asked for.
+  const rest = withoutPath.slice(host.length);
+  if (rest === '') return `http://${host}:${API_PORT}`;
+
+  const port = rest.match(/^:(\d{1,5})$/)?.[1];
+  if (!port || Number(port) < 1 || Number(port) > 65535) return null;
+  return `http://${host}:${port}`;
 }
