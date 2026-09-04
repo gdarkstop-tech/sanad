@@ -59,8 +59,15 @@ fi
 echo "==> Building $BRANCH from $SOURCE"
 git checkout -q -B "$BRANCH" "$SOURCE"
 
-# Leave on failure and the checkout would strand you on the deploy branch.
-trap 'git checkout -q "$SOURCE"' EXIT
+# A run that dies partway through must leave no trace on your branch. Returning
+# the checkout is not enough: the Space's configuration block may already be
+# staged, and a staged file survives `git checkout -- .`, so the next deploy
+# refuses to start and the reason is not obvious from `git status`.
+cleanup() {
+  git checkout -q "$SOURCE" 2>/dev/null || true
+  git restore --staged --worktree README.md 2>/dev/null || true
+}
+trap cleanup EXIT
 
 # Write the Space's configuration block at the top of README.md, replacing one
 # that is already there rather than stacking a second. awk and sed only: Git Bash
