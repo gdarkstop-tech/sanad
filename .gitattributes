@@ -1,0 +1,21 @@
+# Normalize line endings in the repository, and let each platform's working copy
+# look native.
+* text=auto
+
+# Except these, which must stay LF everywhere.
+#
+# The container runs the shell scripts on Linux. A Windows checkout that turns
+# them into CRLF makes `bash scripts/serve.sh` fail with `\r: command not found`
+# — an error that says nothing about line endings and sends you looking in the
+# wrong place entirely.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Not text; never convert.
+*.png binary
+*.jpg binary
+*.pdf binary
+*.apk binary
+*.hbc binary

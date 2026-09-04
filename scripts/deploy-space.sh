@@ -39,6 +39,17 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 1
 fi
 
+# A Windows checkout made before .gitattributes existed can carry CRLF into the
+# scripts the container runs, and the container then dies on `\r: command not
+# found` — an error that points nowhere near line endings. Catch it here, where
+# there is room to say what it is.
+if grep -q $'\r' scripts/serve.sh 2>/dev/null; then
+  echo "scripts/serve.sh has Windows line endings, which the container cannot run." >&2
+  echo "Fix it with:" >&2
+  echo "  git add --renormalize . && git commit -m 'Normalize line endings'" >&2
+  exit 1
+fi
+
 SOURCE="$(git rev-parse --abbrev-ref HEAD)"
 if [ "$SOURCE" = "$BRANCH" ]; then
   echo "Already on $BRANCH. Switch to the branch you want to deploy." >&2
