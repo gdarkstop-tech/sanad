@@ -26,6 +26,11 @@ cd "$(dirname "$0")/.."
 MOBILE="apps/mobile"
 OUT="${1:-$PWD/sanad.apk}"
 
+# A universal APK installs on anything and is the default. Naming ABIs drops the
+# rest — SANAD_APK_ABIS=arm64-v8a covers every Android phone since roughly 2015
+# and more than halves the file.
+export SANAD_APK_ABIS="${SANAD_APK_ABIS:-}"
+
 if [ -z "${ANDROID_HOME:-}${ANDROID_SDK_ROOT:-}" ]; then
   echo "ANDROID_HOME is not set — install the Android SDK, or build in Expo's cloud:" >&2
   echo "  npx eas-cli build --platform android --profile preview" >&2

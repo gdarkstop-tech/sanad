@@ -35,7 +35,8 @@
     "plugins": [
       "expo-router",
       "./plugins/with-lan-cleartext.js",
-      "./plugins/with-kotlin-version.js"
+      "./plugins/with-kotlin-version.js",
+      "./plugins/with-abi-filter.js"
     ],
     "icon": "./assets/icon.png",
     "splash": {

@@ -145,8 +145,15 @@ an Expo Go release that has dropped this SDK.
 
 ```bash
 pnpm mobile:apk                    # → sanad.apk, needs the Android SDK and a JDK
+SANAD_APK_ABIS=arm64-v8a pnpm mobile:apk    # one ABI: ~27 MB instead of ~63 MB
 npx eas-cli build --platform android --profile preview   # or build in Expo's cloud
 ```
+
+A universal APK carries native libraries for all four Android ABIs and installs
+on anything, which is the right default. `SANAD_APK_ABIS` drops the rest;
+`arm64-v8a` covers every Android phone since roughly 2015. `reactNativeArchitectures`
+in `gradle.properties` does not do this — it governs what React Native compiles,
+and these libraries arrive prebuilt inside AARs.
 
 It is a release build: the JavaScript is bundled in, so it runs with no Metro and
 no laptop attached. It still needs a Sanad server, and there is no Metro to ask
