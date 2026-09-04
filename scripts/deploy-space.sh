@@ -62,12 +62,12 @@ git checkout -q -B "$BRANCH" "$SOURCE"
 # Leave on failure and the checkout would strand you on the deploy branch.
 trap 'git checkout -q "$SOURCE"' EXIT
 
-python3 - <<'PY'
-import pathlib
-
-# app_port must match the Dockerfile's PORT. sdk: docker is what makes the Space
-# build the Dockerfile rather than look for a Python entrypoint.
-FRONT_MATTER = """---
+# Write the Space's configuration block at the top of README.md, replacing one
+# that is already there rather than stacking a second. awk and sed only: Git Bash
+# on Windows has no python, and this has to run on the machine doing the deploy.
+{
+  cat <<'YAML'
+---
 title: Sanad
 emoji: 📘
 colorFrom: gray
@@ -77,16 +77,17 @@ app_port: 7860
 pinned: false
 ---
 
-"""
-
-readme = pathlib.Path('README.md')
-body = readme.read_text()
-if body.startswith('---\n'):
-    # Already carries a block; replace it rather than stacking a second one.
-    body = body.split('\n---\n', 1)[1].lstrip('\n')
-readme.write_text(FRONT_MATTER + body)
-print('README.md: Space configuration written')
-PY
+YAML
+  awk '
+    NR == 1 && $0 == "---" { in_block = 1; next }
+    in_block && $0 == "---" { in_block = 0; just_closed = 1; next }
+    in_block { next }
+    just_closed && $0 == "" { just_closed = 0; next }
+    { print }
+  ' README.md
+} > README.space.tmp
+mv README.space.tmp README.md
+echo "README.md: Space configuration written"
 
 git add README.md
 git commit -q -m "Configure the Hugging Face Space" || true
