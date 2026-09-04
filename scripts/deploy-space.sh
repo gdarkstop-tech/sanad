@@ -33,6 +33,19 @@ MISSING
   exit 1
 fi
 
+if ! git config user.email > /dev/null || ! git config user.name > /dev/null; then
+  cat >&2 <<'IDENTITY'
+git does not know who you are, and cannot make the commit this deploy needs.
+
+Set it once:
+
+  git config --global user.email "you@example.com"
+  git config --global user.name  "Your Name"
+
+IDENTITY
+  exit 1
+fi
+
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "You have uncommitted changes. Commit or stash them first — a deploy" >&2
   echo "should be of something you can get back to." >&2
@@ -97,12 +110,30 @@ mv README.space.tmp README.md
 echo "README.md: Space configuration written"
 
 git add README.md
-git commit -q -m "Configure the Hugging Face Space" || true
+# `|| true` here once swallowed a genuine commit failure and pushed a branch
+# missing the very block it exists to add. Tolerate having nothing to commit,
+# and nothing else.
+if ! git diff --cached --quiet; then
+  git commit -q -m "Configure the Hugging Face Space"
+fi
 
 echo "==> Pushing to $REMOTE"
 # Force, because this branch is rebuilt each time and the Space is a deploy
 # target rather than shared history.
-git push -f "$REMOTE" "$BRANCH:main"
+if ! git push -f "$REMOTE" "$BRANCH:main"; then
+  cat >&2 <<'PUSHFAIL'
+
+The push was rejected. Usually one of:
+
+  · The Space does not exist yet. Create it at huggingface.co/new-space —
+    SDK "Docker", template "Blank" — with the same name as the remote.
+  · The password was your account password. It must be an access token with
+    write permission, from huggingface.co/settings/tokens.
+  · The remote points somewhere else. Check it with `git remote -v`.
+
+PUSHFAIL
+  exit 1
+fi
 
 echo
 echo "Pushed. The Space builds from the Dockerfile — several minutes the first"
