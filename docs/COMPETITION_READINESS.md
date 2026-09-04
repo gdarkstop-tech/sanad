@@ -42,7 +42,7 @@ Executed in this environment, with output read:
 
 | Check | Command | Result |
 |---|---|---|
-| TypeScript tests | `pnpm test` | **286 passed**, 15 files |
+| TypeScript tests | `pnpm test` | **296 passed**, 17 files |
 | Python tests | `pnpm test:asr` | **55 passed** |
 | Typecheck | `pnpm typecheck` | 0 errors |
 | Mobile typecheck | `pnpm --filter @sanad/mobile exec tsc --noEmit` | 0 errors |
@@ -129,11 +129,13 @@ pnpm bootstrap:docker          # starts pgvector/pgvector:pg16, then does the ab
 Mobile, on the same Wi-Fi as the laptop:
 
 ```bash
-# apps/mobile/.env → EXPO_PUBLIC_SANAD_API_URL=http://<your-laptop-ip>:3000
 pnpm mobile                # scan the QR code with Expo Go
 ```
 
-`localhost` on a phone means the phone. Use the laptop's LAN address, or `10.0.2.2` on an Android emulator.
+No address to configure: `localhost` on a phone means the phone, so the app takes
+the API host from the machine Expo served the bundle from — the one running
+`pnpm dev`. The sign-in screen prints the address it resolved. Set
+`EXPO_PUBLIC_SANAD_API_URL` only to override that.
 
 **Nothing here needs an account, an API key, or a paid service.**
 

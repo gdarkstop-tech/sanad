@@ -14,11 +14,14 @@
       }
     },
     "android": {
-      "permissions": ["RECORD_AUDIO", "INTERNET", "ACCESS_NETWORK_STATE"]
+      "permissions": [
+        "RECORD_AUDIO",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
-    "plugins": ["expo-router"],
-    "extra": {
-      "apiUrl": "http://localhost:3000"
-    }
+    "plugins": [
+      "expo-router"
+    ]
   }
 }

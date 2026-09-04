@@ -149,7 +149,7 @@ rows of the matrix, not estimated.
 Last run, in this repository, with output read:
 
 ```
-pnpm test                 286 passed, 15 files
+pnpm test                 296 passed, 17 files
 pnpm test:asr              55 passed
 pnpm typecheck              0 errors
 mobile tsc --noEmit         0 errors

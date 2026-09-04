@@ -118,15 +118,22 @@ web app is on 19. It is checked on its own.
 
 ```bash
 cd apps/mobile
-cp .env.example .env                    # EXPO_PUBLIC_SANAD_API_URL
 pnpm exec tsc --noEmit                  # typecheck against real Expo types
 pnpm exec expo export --platform android  # proves it bundles
 pnpm start                              # Expo dev server
 ```
 
-On a device or emulator, `localhost` is the device, not your machine. Use your
-LAN address, or `10.0.2.2` on an Android emulator — `lib/config.ts` documents
-the resolution order.
+No configuration step: on a device or emulator `localhost` means the device, so
+the app derives the API host from the address Expo served the bundle from, which
+is the machine running `pnpm dev`. An Android emulator's loopback is rewritten to
+`10.0.2.2`. `EXPO_PUBLIC_SANAD_API_URL` overrides all of it for a deployed
+backend; `lib/resolve-api-url.ts` holds the rules and
+`tests/unit/mobile-api-url.test.ts` covers them.
+
+If a phone on the same Wi-Fi still cannot connect, the host firewall is the usual
+cause — Windows asks once whether Node may accept connections on private
+networks, and a refused prompt is silent afterwards. The sign-in screen prints
+the address it is calling, which says whether the app got the host right.
 
 **It has not been run on a physical device.** It typechecks and bundles, and the
 queue logic underneath it is covered by 29 Node tests, but audio capture,

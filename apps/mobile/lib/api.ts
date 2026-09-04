@@ -55,6 +55,36 @@ function headers(extra: Record<string, string> = {}): Record<string, string> {
   return result;
 }
 
+/**
+ * The server was never reached: wrong address, server not running, firewall, or
+ * the device is on another network.
+ *
+ * Deliberately not an `ApiError`. Screens treat a reply with a status as the
+ * server talking and a transport failure as "we are offline", and that
+ * distinction is what keeps downloaded courses reachable on a dead network.
+ */
+export class NetworkError extends Error {
+  constructor(readonly url: string) {
+    super(
+      `Cannot reach the server at ${url}. Check that it is running and that this device is on the same network.`,
+    );
+    this.name = 'NetworkError';
+  }
+}
+
+/**
+ * `fetch` rejects with a bare "Network request failed" when it cannot reach the
+ * host. On a phone that is the most likely failure and the least informative
+ * message in the app, so the address it actually tried is named.
+ */
+async function reach(path: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(`${API_URL}${path}`, init);
+  } catch {
+    throw new NetworkError(API_URL);
+  }
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -82,7 +112,7 @@ function messageOf(body: unknown, status: number): string {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, { headers: headers() });
+  const response = await reach(path, { headers: headers() });
   captureCookies(response);
   const body = await parse(response);
   if (!response.ok) throw new ApiError(response.status, messageOf(body, response.status));
@@ -94,7 +124,7 @@ export async function apiSend<T>(
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   json?: unknown,
 ): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await reach(path, {
     method,
     headers: headers(json !== undefined ? { 'content-type': 'application/json' } : {}),
     body: json !== undefined ? JSON.stringify(json) : undefined,
@@ -113,7 +143,7 @@ export async function apiSend<T>(
  */
 export const httpClient: HttpClient = {
   async postJson(path, body): Promise<HttpResponse> {
-    const response = await fetch(`${API_URL}${path}`, {
+    const response = await reach(path, {
       method: 'POST',
       headers: headers({ 'content-type': 'application/json' }),
       body: JSON.stringify(body ?? {}),
@@ -122,12 +152,12 @@ export const httpClient: HttpClient = {
     return { ok: response.ok, status: response.status, body: await parse(response) };
   },
   async getJson(path): Promise<HttpResponse> {
-    const response = await fetch(`${API_URL}${path}`, { headers: headers() });
+    const response = await reach(path, { headers: headers() });
     captureCookies(response);
     return { ok: response.ok, status: response.status, body: await parse(response) };
   },
   async putBytes(path, bytes, extra): Promise<HttpResponse> {
-    const response = await fetch(`${API_URL}${path}`, {
+    const response = await reach(path, {
       method: 'PUT',
       headers: headers(extra),
       body: bytes as unknown as BodyInit,
@@ -140,6 +170,6 @@ export const httpClient: HttpClient = {
 /** Warms the CSRF cookie before the first state-changing request. */
 export async function primeCsrf(): Promise<void> {
   if (csrfToken) return;
-  const response = await fetch(`${API_URL}/sign-in`, { method: 'GET' });
+  const response = await reach('/sign-in', { method: 'GET' });
   captureCookies(response);
 }
