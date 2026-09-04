@@ -163,6 +163,7 @@ pnpm verify:ui             43/43 in Chromium, no console errors
 pnpm bootstrap (fresh clone)    clean checkout → seeded demo
 pnpm demo:reset             database rebuilt and reseeded
 pnpm verify:all            10/10 in one run
+docker build + run          bare DB → migrated, seeded, 30/30 + 17/17 + 43/43
 ```
 
 Reproduce all of it:

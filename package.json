@@ -6,6 +6,7 @@
   "engines": {
     "node": ">=22"
   },
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "bootstrap": "bash scripts/setup.sh",
     "bootstrap:docker": "bash scripts/setup.sh --docker",
@@ -50,5 +51,13 @@
     "@huggingface/transformers": "^4.2.0",
     "fflate": "^0.8.3",
     "unpdf": "^1.8.1"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "esbuild",
+      "onnxruntime-node",
+      "protobufjs",
+      "sharp"
+    ]
   }
 }

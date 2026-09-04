@@ -110,6 +110,7 @@ Phase 2+ ones that are listed but unused, so the shape is known in advance.
 | `pnpm verify:all` | Everything checkable without a phone, in one run |
 | `pnpm mobile` | Expo dev server |
 | `pnpm mobile:apk` | Build an installable Android APK (needs the Android SDK) |
+| `docker build -t sanad .` | One container: migrates, seeds, serves ([docs/DEPLOY.md](DEPLOY.md)) |
 
 ## The mobile app
 
@@ -192,6 +193,19 @@ Three things a native build needs that Expo Go does not:
 **It has not been run on a physical device.** It typechecks and bundles, and the
 queue logic underneath it is covered by 29 Node tests, but audio capture,
 permissions and background behaviour are unverified in practice.
+
+## Native build scripts are not run
+
+`pnpm.ignoredBuiltDependencies` in the root `package.json` names four packages
+whose install scripts are knowingly skipped. That is not laziness:
+`onnxruntime-node`, `sharp`, `protobufjs` and `esbuild` would each compile or
+download a platform binary, and none of them is needed. transformers.js falls
+back to its WASM runtime, which is what produces the 384-dimension vectors the
+tests check.
+
+Left undeclared, pnpm 11 warns locally and *fails* in a container, where it
+cannot stop and ask. Naming them states the decision once, in the place the
+error points at.
 
 ## Tests
 

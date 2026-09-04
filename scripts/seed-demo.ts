@@ -211,6 +211,18 @@ async function addLecture(
 }
 
 async function main(): Promise<void> {
+  // Safe to run on every boot. A hosted deployment seeds on start and restarts
+  // whenever the platform feels like it; failing on the second run with "email
+  // already registered" would take the whole app down with it. `pnpm demo:reset`
+  // is still the way to rebuild the data from scratch.
+  const existing = await db.query.users.findFirst({
+    where: (table, { eq: equals }) => equals(table.email, EMAIL),
+  });
+  if (existing) {
+    console.log(`Demo account ${EMAIL} already exists — nothing to seed.`);
+    return;
+  }
+
   await seedEmphasisCues(db);
 
   const { user } = await registerUser(
@@ -348,10 +360,14 @@ async function main(): Promise<void> {
   console.log(`\nExam in 4 days · ${plan.sessions.length} study sessions planned`);
   console.log(`\nTry: search "collision", ask "What did the professor say about hash tables?",`);
   console.log(`     then ask something unrelated to see Sanad refuse.\n`);
-  process.exit(0);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// The database connection keeps the event loop alive, so exiting is explicit —
+// and it belongs here rather than at the end of main(), where any early return
+// would skip it and hang the process instead of finishing it.
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

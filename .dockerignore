@@ -1,0 +1,19 @@
+# Anything the image builds for itself, plus anything that must never be in it.
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+.git
+.env
+.env.local
+*.apk
+apps/mobile/android
+apps/mobile/ios
+apps/mobile/.expo
+.sanad-storage
+benchmarks/asr/dataset/audio
+benchmarks/asr/results
+coverage
+*.log
