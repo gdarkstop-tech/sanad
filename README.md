@@ -13,11 +13,11 @@ What that does and does not include is set out in [Status](#status), below. It i
 plainly, including the parts that are not finished.
 
 ```bash
-pnpm setup   # installs, writes .env, checks the database, migrates, seeds
+pnpm bootstrap   # installs, writes .env, checks the database, migrates, seeds
 pnpm dev     # → http://localhost:3000, sign in with the account the seed prints
 ```
 
-No PostgreSQL installed? `pnpm setup:docker` starts one container and does the rest.
+No PostgreSQL installed? `pnpm bootstrap:docker` starts one container and does the rest.
 Nothing needs an account, an API key, or a paid service.
 
 **Setting it up on a new machine, or running the demo:** start with
@@ -159,7 +159,7 @@ pnpm check:course-agnostic  OK, 25 seeded terms, none in code
 pnpm verify:isolation      17/17 over HTTP
 pnpm verify:demo           30/30 — every beat in DEMO.md
 pnpm verify:ui             43/43 in Chromium, no console errors
-pnpm setup (fresh clone)    clean checkout → seeded demo
+pnpm bootstrap (fresh clone)    clean checkout → seeded demo
 pnpm demo:reset             database rebuilt and reseeded
 pnpm verify:all            10/10 in one run
 ```

@@ -7,6 +7,8 @@
     "node": ">=22"
   },
   "scripts": {
+    "bootstrap": "bash scripts/setup.sh",
+    "bootstrap:docker": "bash scripts/setup.sh --docker",
     "build": "pnpm --filter @sanad/web build",
     "check:course-agnostic": "bash scripts/check-course-agnostic.sh",
     "check:db": "tsx scripts/check-db.ts",

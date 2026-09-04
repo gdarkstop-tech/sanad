@@ -52,7 +52,7 @@ Executed in this environment, with output read:
 | Isolation over HTTP | `pnpm verify:isolation <url>` | **17/17** |
 | Demo beats | `pnpm verify:demo <url>` | **30/30** — every claim in DEMO.md |
 | Browser UI | `pnpm verify:ui <url>` | **43/43**, no console errors |
-| Clean install | `pnpm setup` on a fresh `git clone` | clean checkout → seeded demo |
+| Clean install | `pnpm bootstrap` on a fresh `git clone` | clean checkout → seeded demo |
 | Demo reset | `pnpm demo:reset` | database rebuilt and reseeded |
 | Clean migration | `pnpm db:migrate` from an empty database | all 6 migrations applied |
 
@@ -116,14 +116,14 @@ From a clean machine. Needs Node 22+, pnpm 10+, and PostgreSQL 16 with pgvector.
 
 ```bash
 git clone <repo> && cd sanad
-pnpm setup                 # installs, writes .env, checks the DB, migrates, seeds
+pnpm bootstrap                 # installs, writes .env, checks the DB, migrates, seeds
 pnpm dev                   # → http://localhost:3000
 ```
 
 No PostgreSQL installed? One optional container, nothing else:
 
 ```bash
-pnpm setup:docker          # starts pgvector/pgvector:pg16, then does the above
+pnpm bootstrap:docker          # starts pgvector/pgvector:pg16, then does the above
 ```
 
 Mobile, on the same Wi-Fi as the laptop:
@@ -159,7 +159,7 @@ It continues past failures so one problem does not hide the state of the rest, a
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `pnpm setup` stops at the database step | PostgreSQL not running, or no pgvector | `pnpm check:db` names which. Or `pnpm setup:docker` |
+| `pnpm bootstrap` stops at the database step | PostgreSQL not running, or no pgvector | `pnpm check:db` names which. Or `pnpm bootstrap:docker` |
 | Sign-in returns 429 | Rate limiting, from repeated run-throughs | `psql "$DATABASE_URL" -c 'TRUNCATE rate_limit_buckets;'` |
 | A material sits on `processing` | A job did not drain | The course page polls itself; if it stalls, `pnpm demo:reset` |
 | Ask refuses something it should answer | Wrong course selected | Ask from inside the course page, not the dashboard |

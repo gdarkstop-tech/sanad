@@ -174,7 +174,7 @@ check-course-agnostic       OK, 25 seeded terms, none in code
 verify-isolation            17/17 over HTTP
 verify-demo                 30/30 — every beat in DEMO.md
 verify-ui                   43/43 in Chromium, no console errors
-pnpm setup (fresh clone)    clean checkout → seeded demo
+pnpm bootstrap (fresh clone)    clean checkout → seeded demo
 pnpm demo:reset             database rebuilt and reseeded
 ```
 
