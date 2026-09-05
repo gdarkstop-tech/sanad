@@ -62,10 +62,32 @@ LOG="$(mktemp)"
 TUNNEL_PID=$!
 trap 'kill "$TUNNEL_PID" 2>/dev/null || true; rm -f "$LOG"' EXIT
 
-for _ in $(seq 1 60); do
+# Two stages, reported separately. Cloudflare issues an address quickly and then
+# takes a moment to route to it, and a single silent wait for both makes a
+# working tunnel look like a hung one.
+printf '    waiting for an address'
+DEADLINE=$(( $(date +%s) + 60 ))
+ADDRESS=""
+while [ "$(date +%s)" -lt "$DEADLINE" ]; do
   ADDRESS="$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$LOG" | head -1 || true)"
-  if [ -n "$ADDRESS" ] && curl -sf -o /dev/null --max-time 10 "$ADDRESS/sign-in"; then
-    printf '\n\033[32mSanad is reachable from anywhere at:\033[0m\n\n'
+  [ -n "$ADDRESS" ] && break
+  printf '.'
+  sleep 2
+done
+echo
+
+if [ -z "$ADDRESS" ]; then
+  echo "Cloudflare never issued an address. What cloudflared said:" >&2
+  tail -20 "$LOG" >&2
+  exit 1
+fi
+
+printf '    got %s\n' "$ADDRESS"
+printf '    checking it answers'
+DEADLINE=$(( $(date +%s) + 90 ))
+while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+  if curl -sf -o /dev/null --max-time 8 "$ADDRESS/sign-in"; then
+    printf '\n\n\033[32mSanad is reachable from anywhere at:\033[0m\n\n'
     printf '    \033[1m%s\033[0m\n\n' "$ADDRESS"
     echo "Enter that on the app's sign-in screen, under Change."
     echo
@@ -76,13 +98,14 @@ for _ in $(seq 1 60); do
     wait "$TUNNEL_PID"
     exit 0
   fi
-  sleep 2
+  printf '.'
+  sleep 3
 done
 
-echo "The tunnel did not come up within two minutes. What cloudflared said:" >&2
+echo
+echo "The address was issued but never started answering. What cloudflared said:" >&2
 tail -20 "$LOG" >&2
 echo >&2
-echo "If it mentions port 7844, the network here is blocking outbound traffic" >&2
-echo "on that port, which is the one a tunnel needs. A phone hotspot usually" >&2
-echo "gets around a restrictive network." >&2
+echo "If it mentions port 7844, this network blocks the port a tunnel needs." >&2
+echo "A phone hotspot usually gets around that." >&2
 exit 1
