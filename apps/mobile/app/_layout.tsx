@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
+import { ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Text, View } from 'react-native';
@@ -9,6 +10,37 @@ import { startQueue, stopQueue } from '@/lib/queue';
 import { ensureRecordingsDirectory } from '@/lib/adapters';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { Loading, theme } from '@/components/ui';
+
+/**
+ * What a crash looks like instead of a disappearing app.
+ *
+ * expo-router renders this in place of the tree when a screen throws. A release
+ * build otherwise closes without a word, which leaves nothing to act on — and no
+ * way to tell a bug in this app from a bad server address.
+ *
+ * The text is selectable so it can be copied out of the phone.
+ */
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Promise<void> }) {
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: theme.ground, padding: 20 }}>
+      <Text style={{ color: theme.danger, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>
+        Sanad hit an error
+      </Text>
+      <Text selectable style={{ color: theme.ink, fontSize: 14, marginBottom: 16 }}>
+        {error?.message ?? String(error)}
+      </Text>
+      <Text selectable style={{ color: theme.inkFaint, fontSize: 11, lineHeight: 16 }}>
+        {error?.stack ?? 'no stack'}
+      </Text>
+      <Text
+        onPress={() => void retry()}
+        style={{ color: theme.accent, fontSize: 16, marginTop: 24, marginBottom: 40 }}
+      >
+        Try again
+      </Text>
+    </ScrollView>
+  );
+}
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
