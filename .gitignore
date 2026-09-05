@@ -26,3 +26,6 @@ apps/mobile/.expo/
 # Sandbox-only build overlay, never committed
 .sandbox-ca.crt
 Dockerfile.sandbox
+
+# Downloaded by scripts/tunnel.sh
+.cloudflared/

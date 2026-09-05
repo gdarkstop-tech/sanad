@@ -27,6 +27,7 @@
     "test": "vitest run",
     "test:asr": "cd benchmarks/asr && python3 -m unittest discover -p \"test_*.py\"",
     "test:watch": "vitest",
+    "tunnel": "bash scripts/tunnel.sh",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "verify:all": "bash scripts/verify-all.sh",
     "verify:demo": "tsx scripts/verify-demo.ts",

@@ -111,6 +111,7 @@ Phase 2+ ones that are listed but unused, so the shape is known in advance.
 | `pnpm mobile` | Expo dev server |
 | `pnpm mobile:apk` | Build an installable Android APK (needs the Android SDK) |
 | `docker build -t sanad .` | One container: migrates, seeds, serves ([docs/DEPLOY.md](DEPLOY.md)) |
+| `pnpm tunnel` | Give the local server a public https:// address ([docs/DEPLOY.md](DEPLOY.md)) |
 | `bash scripts/vm-setup.sh` | Set Sanad up on a fresh cloud VM ([docs/DEPLOY.md](DEPLOY.md)) |
 | `pnpm deploy:space` | Push to a Hugging Face Space — needs a paid plan, since Docker Spaces are no longer free |
 

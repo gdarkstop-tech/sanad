@@ -42,6 +42,37 @@ have been prepared by hand.
 | `SEED_DEMO` | no | `0` to skip seeding entirely |
 | `STORAGE_ROOT` | no | Defaults to `/tmp/sanad-storage` |
 
+## A public address without hosting anything
+
+The simplest way to let the phone reach Sanad from anywhere is to keep the
+server on your own machine and give it a public address:
+
+```bash
+pnpm dev          # terminal 1
+pnpm tunnel       # terminal 2
+```
+
+`scripts/tunnel.sh` prints an `https://…trycloudflare.com` address that works
+from mobile data, a venue's network, anywhere. Free, no account, no card, and
+real HTTPS — which is better than the plain HTTP a hosted VM on a bare IP would
+give you.
+
+Two costs. The machine has to stay on and online; the tunnel forwards to the
+server, it does not replace it. And the address changes each time you restart
+the tunnel, so the phone needs the new one — which takes about ten seconds on
+the sign-in screen.
+
+The script waits for the server to answer before opening the tunnel. Pointed at
+a port with nothing on it, Cloudflare serves a 530 for the life of that tunnel
+and starting the server afterwards does not fix it; the address simply looks
+broken. Getting that wrong by hand costs half an hour of confusion.
+
+**Verified in part.** cloudflared installs and issues an address, the script
+refuses to run with no server, waits correctly, and on failure prints
+cloudflared's own logs with the right diagnosis. The tunnel's data path could
+not be tested here: this environment blocks outbound port 7844, which is what a
+tunnel connects on. On an ordinary home network that port is open.
+
 ## How much memory it needs
 
 Measured, by running the container under a cap and putting the demo checks
