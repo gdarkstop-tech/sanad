@@ -22,7 +22,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang={locale} dir={dir}>
-      <body>{children}</body>
+      {/*
+        Extensions like Grammarly add their own attributes to <body> before
+        React hydrates, and React reports the difference as an error. It is
+        their edit, not ours, and nothing downstream is affected — but a red
+        console error during a demo is read as a broken app. This suppresses
+        the warning for this element's own attributes only; mismatches in the
+        page below are still reported.
+      */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
